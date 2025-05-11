@@ -27,7 +27,7 @@ def set_app_user_model_id(app_id_str: str):
     if platform.system() == "Windows":
         try:
             ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(app_id_str)
-            print(f"AppUserModelID set to: {app_id_str}") # For debugging
+            # print(f"AppUserModelID set to: {app_id_str}") # For debugging
         except AttributeError:
             print("Failed to set AppUserModelID: Attribute error (ctypes or shell32 issue).")
         except Exception as e:
@@ -61,10 +61,10 @@ class MathSpeedTrainer:
         except Exception as e:
             print(f"Warning: An unexpected error occurred while setting the window icon: {e}")
 
-        self.root.iconbitmap(icon_path)
         self.root.title("Math Speed Trainer")
-        self.root.geometry("1000x900") # Adjusted geometry
-        self.root.resizable(True, True)
+        self.root.geometry("800x700") # Adjusted geometry
+        self.root.minsize(700, 600) # Prevent making it too small
+        self.root.resizable(False, True)
 
         self.theme = "light"
         self.define_color_palettes()
@@ -97,7 +97,7 @@ class MathSpeedTrainer:
             self.user_data_dir = Path(".") 
             messagebox.showwarning("Data Storage Warning", 
                                    f"Could not create application data folder.\nUser data will be saved in the program's current directory.",
-                                   parent=self.root) # Added parent
+                                   parent=self.root)
 
         self.user_data_file = self.user_data_dir / "math_trainer_user_data.json"
 
@@ -109,28 +109,24 @@ class MathSpeedTrainer:
         self.current_question_details: Optional[Dict] = None
         self.question_start_time = None
         
-        self.questions_answered = 0 # Session specific
-        self.correct_answers = 0    # Session specific
+        self.questions_answered = 0 
+        self.correct_answers = 0    
         self.session_operation_times = defaultdict(list)
         self.session_operation_correct = defaultdict(int)
         self.session_operation_incorrect = defaultdict(int)
         
-        # Persistent lists for practice modes
         self.persistently_wrong_questions = [] 
         self.persistently_slow_questions = []  
         
-        # Practice mode state variables
         self.current_practice_type = None 
         self.current_practice_list = []
-        self.current_practice_op_for_session = None # For targeted op practice
+        self.current_practice_op_for_session = None 
 
-        # User progress
         self.current_level = 1
         self.current_xp = 0
-        self.xp_needed = self.calculate_xp_for_level(2) # Initial XP for level 1->2
+        self.xp_needed = self.calculate_xp_for_level(2) 
         self.session_history = []
         
-        # Game settings defaults
         self.game_duration = 60
         self.operations = {
             "addition": True, "subtraction": True, "multiplication": True, "division": True,
@@ -138,13 +134,11 @@ class MathSpeedTrainer:
         }
         self.answer_mode = "text"
         
-        # Operation statistics
         self.operation_stats = {
             op: {"correct": 0, "incorrect": 0, "avg_time": 0.0, "total_answered_for_avg": 0}
             for op in self.operations.keys()
         }
         
-        # Difficulty configuration
         self.difficulty_brackets = [
             (1, 5, {"range": (1, 10), "digits": 1}),
             (6, 10, {"range": (1, 50), "digits": 2}),
@@ -155,37 +149,32 @@ class MathSpeedTrainer:
             (51, 100, {"range": (100, 9999), "digits": 4, "mult_range": (10, 200)})
         ]
         
-        # Canvas and Figure Info for Matplotlib (for proper cleanup)
         self.overview_canvas_info = None
         self.operations_canvas_info = None
         self.progress_canvas_info = None
         self.predictions_canvas_info = None
         self.overall_time_trend_canvas_info = None
         self.op_time_trend_canvases_info = {}
-        self.pred_text_widget_ref = None # Reference for the Text widget in predictions
+        self.pred_text_widget_ref = None 
 
-        # Practice mode specific (already in your provided code, just ensuring it's here)
         self.practice_questions_total = 0
         self.practice_questions_answered = 0
         self.practice_correct_answers = 0
-        # self.current_practice_op = "" # Replaced by current_practice_op_for_session and current_practice_type
 
-        # --- Initial Self-Assessment ---
         self.initial_assessment_done = False 
-        self.self_assessment_level = "good"  # Default
+        self.self_assessment_level = "good"  
 
-        # --- Load Data, Apply Theme, Setup UI ---
-        self.load_user_data() # This will load theme and assessment status if saved
+        self.load_user_data() 
         self.apply_theme() 
 
         self.notebook = ttk.Notebook(root, style="TNotebook")
-        self.notebook.pack(fill=tk.BOTH, expand=True, padx=15, pady=15)
+        self.notebook.pack(fill=tk.BOTH, expand=True, padx=10, pady=10) # Reduced padding
         
-        self.home_frame = ttk.Frame(self.notebook, padding=20)
-        self.game_frame = ttk.Frame(self.notebook, padding=20)
-        self.practice_frame = ttk.Frame(self.notebook, padding=20)
-        self.stats_frame = ttk.Frame(self.notebook, padding=10)
-        self.settings_frame = ttk.Frame(self.notebook, padding=20)
+        self.home_frame = ttk.Frame(self.notebook, padding=15) # Reduced padding
+        self.game_frame = ttk.Frame(self.notebook, padding=15) # Reduced padding
+        self.practice_frame = ttk.Frame(self.notebook, padding=15) # Reduced padding
+        self.stats_frame = ttk.Frame(self.notebook, padding=10) # stats_frame already had less padding
+        self.settings_frame = ttk.Frame(self.notebook, padding=15) # Reduced padding
         
         self.notebook.add(self.home_frame, text="Home")
         self.notebook.add(self.game_frame, text="Game")
@@ -203,99 +192,64 @@ class MathSpeedTrainer:
         self.root.protocol("WM_DELETE_WINDOW", self.on_closing)
         self.auto_save_timer_id = self.root.after(300000, self.auto_save)
 
-        # --- Prompt for initial assessment if not done ---
-        # This needs to be called after the main UI is somewhat ready,
-        # especially if the assessment window relies on themed elements.
-        # Using `after` ensures the main loop has started and styles are applied.
         self.root.after(200, self.prompt_initial_assessment)
-
-
-
 
 
     def define_color_palettes(self):
         self.light_theme_colors = {
-            "BG_COLOR": "#F0F0F0",
-            "TEXT_COLOR": "#333333",
-            "PRIMARY_COLOR": "#0078D4",
-            "PRIMARY_COLOR_ACTIVE": "#005A9E", # Darker for active state
-            "SECONDARY_COLOR": "#EAEAEA", 
-            "ACCENT_COLOR_GREEN": "#28A745",
-            "ACCENT_GREEN_ACTIVE": "#1E7E34",
-            "ACCENT_COLOR_RED": "#DC3545",
-            "ACCENT_RED_ACTIVE": "#A71D2A",
-            "BUTTON_TEXT_COLOR": "#FFFFFF",
-            "LISTBOX_BG": "#FFFFFF",
-            "LISTBOX_SELECT_BG": "#0078D4",
-            "LISTBOX_SELECT_FG": "#FFFFFF",
-            "ENTRY_BG": "#FFFFFF",
-            "ENTRY_FG": "#333333",
-            "ENTRY_BORDER": "#CCCCCC",
-            "TREEVIEW_BG": "#FFFFFF",
-            "TREEVIEW_FG": "#333333",
-            "TREEVIEW_HEADING_BG": "#0078D4",
-            "TREEVIEW_HEADING_FG": "#FFFFFF",
-            "TREEVIEW_HEADING_BG_ACTIVE": "#005A9E",
-            "PROGRESS_TROUGH": "#D0D0D0",
-            "TAB_ACTIVE_BG": "#D0D0D0", # For notebook tab hover
+            "BG_COLOR": "#F0F0F0", "TEXT_COLOR": "#333333", "PRIMARY_COLOR": "#0078D4",
+            "PRIMARY_COLOR_ACTIVE": "#005A9E", "SECONDARY_COLOR": "#EAEAEA", 
+            "ACCENT_COLOR_GREEN": "#28A745", "ACCENT_GREEN_ACTIVE": "#1E7E34",
+            "ACCENT_COLOR_RED": "#DC3545", "ACCENT_RED_ACTIVE": "#A71D2A",
+            "BUTTON_TEXT_COLOR": "#FFFFFF", "LISTBOX_BG": "#FFFFFF", "LISTBOX_SELECT_BG": "#0078D4",
+            "LISTBOX_SELECT_FG": "#FFFFFF", "ENTRY_BG": "#FFFFFF", "ENTRY_FG": "#333333",
+            "ENTRY_BORDER": "#CCCCCC", "TREEVIEW_BG": "#FFFFFF", "TREEVIEW_FG": "#333333",
+            "TREEVIEW_HEADING_BG": "#0078D4", "TREEVIEW_HEADING_FG": "#FFFFFF",
+            "TREEVIEW_HEADING_BG_ACTIVE": "#005A9E", "PROGRESS_TROUGH": "#D0D0D0", "TAB_ACTIVE_BG": "#D0D0D0",
         }
         self.dark_theme_colors = {
-            "BG_COLOR": "#2B2B2B",
-            "TEXT_COLOR": "#D0D0D0",
-            "PRIMARY_COLOR": "#0078D4", # Using the same blue for more pop on dark
-            "PRIMARY_COLOR_ACTIVE": "#005A9E", 
-            "SECONDARY_COLOR": "#3C3F41",
-            "ACCENT_COLOR_GREEN": "#28A745", # Same green
-            "ACCENT_GREEN_ACTIVE": "#1E7E34",
-            "ACCENT_COLOR_RED": "#DC3545",   # Same red
-            "ACCENT_RED_ACTIVE": "#A71D2A",
-            "BUTTON_TEXT_COLOR": "#FFFFFF", # White text should be fine on these button colors
-            "LISTBOX_BG": "#3C3F41",
-            "LISTBOX_SELECT_BG": "#005A9E", 
-            "LISTBOX_SELECT_FG": "#FFFFFF",
-            "ENTRY_BG": "#3C3F41",
-            "ENTRY_FG": "#D0D0D0",
-            "ENTRY_BORDER": "#555555",
-            "TREEVIEW_BG": "#313335", # Slightly different from frame for definition
-            "TREEVIEW_FG": "#D0D0D0",
-            "TREEVIEW_HEADING_BG": "#0078D4",
-            "TREEVIEW_HEADING_FG": "#FFFFFF",
-            "TREEVIEW_HEADING_BG_ACTIVE": "#005A9E",
-            "PROGRESS_TROUGH": "#555555",
-            "TAB_ACTIVE_BG": "#4F5254",
+            "BG_COLOR": "#2B2B2B", "TEXT_COLOR": "#D0D0D0", "PRIMARY_COLOR": "#0078D4", 
+            "PRIMARY_COLOR_ACTIVE": "#005A9E", "SECONDARY_COLOR": "#3C3F41",
+            "ACCENT_COLOR_GREEN": "#28A745", "ACCENT_GREEN_ACTIVE": "#1E7E34",
+            "ACCENT_COLOR_RED": "#DC3545", "ACCENT_RED_ACTIVE": "#A71D2A",
+            "BUTTON_TEXT_COLOR": "#FFFFFF", "LISTBOX_BG": "#3C3F41", "LISTBOX_SELECT_BG": "#005A9E", 
+            "LISTBOX_SELECT_FG": "#FFFFFF", "ENTRY_BG": "#3C3F41", "ENTRY_FG": "#D0D0D0",
+            "ENTRY_BORDER": "#555555", "TREEVIEW_BG": "#313335", "TREEVIEW_FG": "#D0D0D0",
+            "TREEVIEW_HEADING_BG": "#0078D4", "TREEVIEW_HEADING_FG": "#FFFFFF",
+            "TREEVIEW_HEADING_BG_ACTIVE": "#005A9E", "PROGRESS_TROUGH": "#555555", "TAB_ACTIVE_BG": "#4F5254",
         }
         self.colors = self.light_theme_colors
 
     def initialize_styles_structure(self):
         self.style.configure("TFrame", padding=0) 
-        self.style.configure("TLabel", font=("Segoe UI", 11))
-        self.style.configure("Header.TLabel", font=("Segoe UI Semibold", 20))
-        self.style.configure("SubHeader.TLabel", font=("Segoe UI Semibold", 16))
-        self.style.configure("Question.TLabel", font=("Segoe UI Black", 36))
-        self.style.configure("Timer.TLabel", font=("Segoe UI Semibold", 16))
-        self.style.configure("Score.TLabel", font=("Segoe UI", 14))
-        self.style.configure("LevelInfo.TLabel", font=("Segoe UI Semibold", 14))
+        self.style.configure("TLabel", font=("Segoe UI", 10))
+        self.style.configure("Header.TLabel", font=("Segoe UI Semibold", 18))
+        self.style.configure("SubHeader.TLabel", font=("Segoe UI Semibold", 14))
+        self.style.configure("Question.TLabel", font=("Segoe UI Black", 28)) # Reduced
+        self.style.configure("Timer.TLabel", font=("Segoe UI Semibold", 14))
+        self.style.configure("Score.TLabel", font=("Segoe UI", 12))
+        self.style.configure("LevelInfo.TLabel", font=("Segoe UI Semibold", 12))
 
-        self.style.configure("TButton", font=("Segoe UI Semibold", 11), padding=(10, 5), borderwidth=0)
+        self.style.configure("TButton", font=("Segoe UI Semibold", 10), padding=(8, 4), borderwidth=0) # Reduced padding
 
         self.style.configure("TNotebook", borderwidth=0)
-        self.style.configure("TNotebook.Tab", font=("Segoe UI Semibold", 11), padding=(10, 5))
+        self.style.configure("TNotebook.Tab", font=("Segoe UI Semibold", 10), padding=(8, 4)) # Reduced padding
 
         self.style.configure("TLabelframe", relief="solid", borderwidth=1)
-        self.style.configure("TLabelframe.Label", font=("Segoe UI Semibold", 12), padding=(5,2))
+        self.style.configure("TLabelframe.Label", font=("Segoe UI Semibold", 11), padding=(5,2))
 
-        self.style.configure("TProgressbar", thickness=20)
+        self.style.configure("TProgressbar", thickness=15) # Reduced thickness
         
-        self.style.configure("TEntry", font=("Segoe UI", 12), padding=5, relief="flat")
-        self.style.configure("TSpinbox", font=("Segoe UI", 10), padding=3, relief="flat", arrowsize=12)
+        self.style.configure("TEntry", font=("Segoe UI", 11), padding=4, relief="flat") # Adjusted
+        self.style.configure("TSpinbox", font=("Segoe UI", 9), padding=2, relief="flat", arrowsize=10) # Adjusted
 
 
-        self.style.configure("Treeview.Heading", font=("Segoe UI Semibold", 10), relief="flat")
-        self.style.configure("Treeview", rowheight=25, font=("Segoe UI", 10))
+        self.style.configure("Treeview.Heading", font=("Segoe UI Semibold", 9), relief="flat") # Reduced
+        self.style.configure("Treeview", rowheight=22, font=("Segoe UI", 9)) # Reduced
         
-        self.style.configure("TRadiobutton", font=("Segoe UI", 10))
-        self.style.configure("TCheckbutton", font=("Segoe UI", 10))
-        self.style.configure("TCombobox", font=("Segoe UI", 10))
+        self.style.configure("TRadiobutton", font=("Segoe UI", 9)) # Reduced
+        self.style.configure("TCheckbutton", font=("Segoe UI", 9)) # Reduced
+        self.style.configure("TCombobox", font=("Segoe UI", 9)) # Reduced
 
 
     def apply_theme(self):
@@ -349,15 +303,15 @@ class MathSpeedTrainer:
         
         self.style.configure("TRadiobutton", background=self.colors["SECONDARY_COLOR"], foreground=self.colors["TEXT_COLOR"])
         self.style.map("TRadiobutton", indicatorcolor=[('selected', self.colors["PRIMARY_COLOR"]), ('!selected', self.colors["TEXT_COLOR"])],
-                                      foreground=[('active', self.colors["PRIMARY_COLOR"])]) # Text color on hover
+                                      foreground=[('active', self.colors["PRIMARY_COLOR"])]) 
         self.style.configure("TCheckbutton", background=self.colors["SECONDARY_COLOR"], foreground=self.colors["TEXT_COLOR"])
         self.style.map("TCheckbutton", indicatorcolor=[('selected', self.colors["PRIMARY_COLOR"]), ('!selected', self.colors["TEXT_COLOR"])],
                                        foreground=[('active', self.colors["PRIMARY_COLOR"])])
         
         self.style.map('TCombobox', fieldbackground=[('readonly', self.colors["ENTRY_BG"])])
-        self.style.map('TCombobox', selectbackground=[('readonly', self.colors["ENTRY_BG"])]) # Background of selected item in list
-        self.style.map('TCombobox', selectforeground=[('readonly', self.colors["ENTRY_FG"])]) # Foreground of selected item in list
-        self.style.map('TCombobox', foreground=[('readonly', self.colors["ENTRY_FG"])])      # Text color in entry part
+        self.style.map('TCombobox', selectbackground=[('readonly', self.colors["ENTRY_BG"])]) 
+        self.style.map('TCombobox', selectforeground=[('readonly', self.colors["ENTRY_FG"])]) 
+        self.style.map('TCombobox', foreground=[('readonly', self.colors["ENTRY_FG"])])      
         self.root.option_add("*TCombobox*Listbox*Background", self.colors["LISTBOX_BG"])
         self.root.option_add("*TCombobox*Listbox*Foreground", self.colors["TEXT_COLOR"])
         self.root.option_add("*TCombobox*Listbox*selectBackground", self.colors["LISTBOX_SELECT_BG"])
@@ -366,7 +320,7 @@ class MathSpeedTrainer:
         mcq_button_bg = self.colors["PRIMARY_COLOR"]
         mcq_button_active_bg = self.colors["PRIMARY_COLOR_ACTIVE"]
         mcq_button_fg = self.colors["BUTTON_TEXT_COLOR"]
-        self.style.configure("MCQ.TButton", background=mcq_button_bg, foreground=mcq_button_fg)
+        self.style.configure("MCQ.TButton", background=mcq_button_bg, foreground=mcq_button_fg, font=("Segoe UI Semibold", 12), padding=(10,6)) # Added font/padding
         self.style.map("MCQ.TButton", background=[('active', mcq_button_active_bg)])
 
         if hasattr(self, 'weakness_list'):
@@ -388,28 +342,21 @@ class MathSpeedTrainer:
                 selectforeground=self.colors["LISTBOX_SELECT_FG"]
             )
 
-
-
         if self.theme == "dark":
-            pink_button_bg = "#E91E63"  # Hot Pink (good contrast on dark)
-            pink_button_active_bg = "#C2185B" # Darker Pink
+            pink_button_bg = "#E91E63"
+            pink_button_active_bg = "#C2185B"
             pink_button_fg = "#FFFFFF"
-        else: # Light theme
-            pink_button_bg = "#FF80AB"  # Lighter Pink (good contrast on light)
-            pink_button_active_bg = "#F06292" # Slightly Darker Pink
-            pink_button_fg = "#FFFFFF" # White text usually works on pink
+        else: 
+            pink_button_bg = "#FF80AB"
+            pink_button_active_bg = "#F06292"
+            pink_button_fg = "#FFFFFF" 
 
-        self.style.configure("Pink.TButton", background=pink_button_bg, foreground=pink_button_fg)
+        self.style.configure("Pink.TButton", background=pink_button_bg, foreground=pink_button_fg, font=("Segoe UI Semibold", 9), padding=(6,3)) # Adjusted
         self.style.map("Pink.TButton", background=[('active', pink_button_active_bg)])
-
 
 
         if hasattr(self, 'stats_notebook'): 
             self.refresh_stats()
-
-
-
-
 
     def prompt_initial_assessment(self):
         if self.initial_assessment_done:
@@ -417,22 +364,22 @@ class MathSpeedTrainer:
 
         assessment_window = tk.Toplevel(self.root)
         assessment_window.title("Initial Math Skill Assessment")
-        assessment_window.geometry("500x400")
+        assessment_window.geometry("420x330") # Reduced size
         assessment_window.resizable(False, False)
         assessment_window.transient(self.root)
-        assessment_window.grab_set() # Make it modal
-        assessment_window.protocol("WM_DELETE_WINDOW", lambda: None) # Prevent closing with 'X'
+        assessment_window.grab_set() 
+        assessment_window.protocol("WM_DELETE_WINDOW", lambda: None) 
 
         assessment_window.configure(bg=self.colors["BG_COLOR"])
-        main_frame = ttk.Frame(assessment_window, padding=20)
+        main_frame = ttk.Frame(assessment_window, padding=15) # Reduced padding
         main_frame.pack(expand=True, fill=tk.BOTH)
         main_frame.configure(style="TFrame")
 
-        ttk.Label(main_frame, text="Welcome to Math Speed Trainer!", style="SubHeader.TLabel", anchor="center").pack(pady=(0,10))
+        ttk.Label(main_frame, text="Welcome to Math Speed Trainer!", style="SubHeader.TLabel", anchor="center").pack(pady=(0,8))
         ttk.Label(main_frame, text="To help tailor the experience, please rate your current math comfort level:",
-                  wraplength=400, justify=tk.CENTER, style="TLabel").pack(pady=(0, 15))
+                  wraplength=380, justify=tk.CENTER, style="TLabel").pack(pady=(0, 12)) # Reduced wraplength
 
-        assessment_var = tk.StringVar(value="good") # Default selection
+        assessment_var = tk.StringVar(value="good")
 
         options = [
             ("Bad (I need a lot of practice)", "bad"),
@@ -443,83 +390,62 @@ class MathSpeedTrainer:
 
         for text, value in options:
             rb = ttk.Radiobutton(main_frame, text=text, variable=assessment_var, value=value, style="TRadiobutton")
-            rb.pack(anchor="w", pady=3, padx=20)
+            rb.pack(anchor="w", pady=2, padx=15)
 
         ttk.Label(main_frame, text="Note: This setting influences long-term difficulty scaling and can only be changed by deleting all your data.",
-                  wraplength=400, justify=tk.CENTER, font=("Segoe UI Italic", 9), style="TLabel").pack(pady=(15, 10))
+                  wraplength=380, justify=tk.CENTER, font=("Segoe UI Italic", 8), style="TLabel").pack(pady=(12, 8)) # Font size, wraplength
 
         def submit_assessment():
             self.self_assessment_level = assessment_var.get()
             self.initial_assessment_done = True
-            self.save_user_data() # Save this choice immediately
+            self.save_user_data() 
             assessment_window.destroy()
-            # No need to grab_release, destroy does it.
-            # Re-enable main window interaction if it was somehow disabled beyond grab_set
             self.root.attributes('-disabled', False)
 
 
         submit_btn = ttk.Button(main_frame, text="Confirm and Start", command=submit_assessment, style="Green.TButton")
-        submit_btn.pack(pady=(10,0))
+        submit_btn.pack(pady=(8,0))
         
         self.root.eval(f'tk::PlaceWindow {str(assessment_window)} center')
         assessment_window.focus_set()
-        # Temporarily disable interaction with the main window while this is up
-        # This is an alternative to grab_set if grab_set causes issues on some platforms
-        # self.root.attributes('-disabled', True) 
-        assessment_window.wait_window() # Crucial: Halts execution here until assessment_window is destroyed
-
-
-
+        assessment_window.wait_window()
 
     def calculate_xp_for_level(self, level):
         if level <= 1: return 100
         return int(100 * (1.5 ** (level - 1)))
 
     def on_closing(self):
-        print("Attempting to close application...") # For debugging
+        print("Attempting to close application...") 
         try:
-            # 1. Attempt to save user data
             print("Saving user data...")
             self.save_user_data()
             print("User data saved.")
         except Exception as e:
             print(f"Error saving data on close: {e}")
-            # Optionally, show a messagebox to the user if saving failed critically
-            # messagebox.showerror("Save Error", f"Could not save data before closing: {e}", parent=self.root)
 
         try:
-            # 2. Cancel any pending 'after' events (like auto-save)
             if hasattr(self, 'auto_save_timer_id') and self.auto_save_timer_id:
                 print(f"Cancelling auto_save_timer: {self.auto_save_timer_id}")
                 self.root.after_cancel(self.auto_save_timer_id)
-                self.auto_save_timer_id = None # Clear the ID
+                self.auto_save_timer_id = None 
                 print("Auto-save timer cancelled.")
         except Exception as e:
             print(f"Error cancelling auto_save_timer: {e}")
 
         try:
-            # 3. Stop the Tkinter main event loop
             print("Quitting Tkinter mainloop...")
-            self.root.quit() # This stops the mainloop
+            self.root.quit() 
             print("Mainloop quit.")
         except Exception as e:
             print(f"Error quitting mainloop: {e}")
         
         try:
-            # 4. Destroy the main window and its widgets
-            # This should happen after quit() to ensure the event loop is not processing destroy events
-            # while also trying to destroy.
             print("Destroying root window...")
             self.root.destroy()
             print("Root window destroyed.")
         except Exception as e:
             print(f"Error destroying root window: {e}")
         
-        # 5. As a final measure if the script is still running (shouldn't be common with quit() and destroy())
-        # This is a more forceful exit. Use with caution, but can be necessary.
-        # print("Exiting Python interpreter.")
-        # sys.exit(0) # Uncomment this line if the above steps are not enough
-
 
     def auto_save(self):
         self.save_user_data()
@@ -536,7 +462,7 @@ class MathSpeedTrainer:
                 self.operations = user_data.get("operations", self.operations)
                 self.game_duration = user_data.get("game_duration", 60)
                 self.answer_mode = user_data.get("answer_mode", "text")
-                self.theme = user_data.get("theme", "dark") 
+                self.theme = user_data.get("theme", "light") 
                 self.persistently_wrong_questions = user_data.get("persistently_wrong_questions", [])
                 self.persistently_slow_questions = user_data.get("persistently_slow_questions", [])
                 self.initial_assessment_done = user_data.get("initial_assessment_done", False)
@@ -550,7 +476,7 @@ class MathSpeedTrainer:
                          self.operation_stats[op_key] = {"correct": 0, "incorrect": 0, "avg_time": 0.0, "total_answered_for_avg": 0}
                 self.session_history = user_data.get("session_history", [])
             except Exception as e:
-                messagebox.showerror("Error", f"Failed to load user data: {e}")
+                messagebox.showerror("Error", f"Failed to load user data: {e}", parent=self.root)
         else:
             self.xp_needed = self.calculate_xp_for_level(self.current_level + 1)
 
@@ -574,7 +500,7 @@ class MathSpeedTrainer:
             with open(self.user_data_file, "w") as f:
                 json.dump(user_data, f, indent=4)
         except Exception as e:
-            messagebox.showerror("Error", f"Failed to save user data: {e}")
+            messagebox.showerror("Error", f"Failed to save user data: {e}", parent=self.root)
 
     def handle_return_key(self, event=None):
         focused_widget = self.root.focus_get()
@@ -597,83 +523,73 @@ class MathSpeedTrainer:
         for widget in self.home_frame.winfo_children():
             widget.destroy()
 
-        # --- Main Title ---
         title_label = ttk.Label(self.home_frame, text="Math Speed Trainer", style="Header.TLabel")
-        title_label.pack(pady=(10, 30), anchor="center") # Increased top padding
+        title_label.pack(pady=(10, 20), anchor="center")
 
-        # --- User Progress Section ---
-        progress_lf = ttk.LabelFrame(self.home_frame, text="Your Progress", padding=(20, 15))
-        progress_lf.pack(pady=20, padx=40, fill=tk.X)
+        progress_lf = ttk.LabelFrame(self.home_frame, text="Your Progress", padding=(15, 10)) # Reduced
+        progress_lf.pack(pady=15, padx=20, fill=tk.X) # Reduced
 
-        level_info_frame = ttk.Frame(progress_lf) # No style needed, just for layout
-        level_info_frame.pack(pady=(0,10), fill=tk.X)
-        level_info_frame.configure(style="Secondary.TFrame") # Use secondary color for this frame's bg if defined
+        level_info_frame = ttk.Frame(progress_lf) 
+        level_info_frame.pack(pady=(0,8), fill=tk.X)
+        level_info_frame.configure(style="Secondary.TFrame") 
 
         self.level_label = ttk.Label(level_info_frame, text=f"Level: {self.current_level}", style="LevelInfo.TLabel")
-        self.level_label.pack(side=tk.LEFT, padx=(0,30))
+        self.level_label.pack(side=tk.LEFT, padx=(0,20))
         
         self.xp_label = ttk.Label(level_info_frame, text=f"XP: {self.current_xp}/{self.xp_needed}", style="LevelInfo.TLabel")
         self.xp_label.pack(side=tk.LEFT)
         
-        self.xp_progress = ttk.Progressbar(progress_lf, orient="horizontal", length=400, mode="determinate", style="TProgressbar")
-        self.xp_progress.pack(pady=(5, 10), fill=tk.X)
+        self.xp_progress = ttk.Progressbar(progress_lf, orient="horizontal", length=300, mode="determinate", style="TProgressbar") # Reduced length
+        self.xp_progress.pack(pady=(3, 8), fill=tk.X)
         self.update_xp_display()
         
-
-        # --- Main Action Buttons Section ---
-        buttons_lf = ttk.LabelFrame(self.home_frame, text="Get Started", padding=(20,15))
-        buttons_lf.pack(pady=20, padx=40, fill=tk.X)
+        buttons_lf = ttk.LabelFrame(self.home_frame, text="Get Started", padding=(15,10)) # Reduced
+        buttons_lf.pack(pady=15, padx=20, fill=tk.X) # Reduced
         
-        # Use a frame inside the labelframe for better button layout control
         action_buttons_frame = ttk.Frame(buttons_lf)
-        action_buttons_frame.pack(pady=10)
+        action_buttons_frame.pack(pady=8)
         action_buttons_frame.configure(style="Secondary.TFrame")
 
-
-        button_width = 22 # Consistent width for main action buttons
-        ttk.Button(action_buttons_frame, text="🚀 Start Normal Game", command=self.start_normal_game_tab, style="Green.TButton", width=button_width).pack(pady=7, ipadx=10, ipady=6)
-        ttk.Button(action_buttons_frame, text="🏋️ Practice Mode", command=self.open_practice_tab, style="Accent.TButton", width=button_width).pack(pady=7, ipadx=10, ipady=6)
-        ttk.Button(action_buttons_frame, text="📊 View Statistics", command=self.open_stats_tab, style="TButton", width=button_width).pack(pady=7, ipadx=10, ipady=6)
-        ttk.Button(action_buttons_frame, text="⚙️ Settings", command=self.open_settings_tab, style="TButton", width=button_width).pack(pady=7, ipadx=10, ipady=6)
+        button_width = 18 # Reduced width
+        ttk.Button(action_buttons_frame, text="🚀 Start Normal Game", command=self.start_normal_game_tab, style="Green.TButton", width=button_width).pack(pady=5, ipadx=8, ipady=4) # Reduced padding
+        ttk.Button(action_buttons_frame, text="🏋️ Practice Mode", command=self.open_practice_tab, style="Accent.TButton", width=button_width).pack(pady=5, ipadx=8, ipady=4)
+        ttk.Button(action_buttons_frame, text="📊 View Statistics", command=self.open_stats_tab, style="TButton", width=button_width).pack(pady=5, ipadx=8, ipady=4)
+        ttk.Button(action_buttons_frame, text="⚙️ Settings", command=self.open_settings_tab, style="TButton", width=button_width).pack(pady=5, ipadx=8, ipady=4)
         
-
-        # --- Recent Sessions Section ---
         if self.session_history:
-            recent_sessions_to_show = 7 # Show more recent sessions
-            recent_frame_height = 8     # Taller listbox
+            recent_sessions_to_show = 6 
+            recent_frame_height = 5     
 
-            recent_lf = ttk.LabelFrame(self.home_frame, text="Recent Activity", padding=(20,15))
-            recent_lf.pack(pady=20, padx=40, fill=tk.BOTH, expand=True) # Allow to expand
+            recent_lf = ttk.LabelFrame(self.home_frame, text="Recent Activity", padding=(15,10)) # Reduced
+            recent_lf.pack(pady=15, padx=20, fill=tk.BOTH, expand=True) # Reduced
             
-            # Listbox for recent sessions
-            self.home_session_listbox = tk.Listbox(recent_lf, font=("Segoe UI", 10), height=recent_frame_height, 
+            self.home_session_listbox = tk.Listbox(recent_lf, font=("Segoe UI", 9), height=recent_frame_height, # Reduced font, height
                                              relief="flat", borderwidth=1,
                                              bg=self.colors["LISTBOX_BG"], fg=self.colors["TEXT_COLOR"],
                                              selectbackground=self.colors["LISTBOX_SELECT_BG"], 
                                              selectforeground=self.colors["LISTBOX_SELECT_FG"],
-                                             activestyle='none') # No selection box needed here
-            self.home_session_listbox.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, pady=(0,5))
+                                             activestyle='none') 
+            self.home_session_listbox.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, pady=(0,3))
             
             recent_scrollbar = ttk.Scrollbar(recent_lf, orient="vertical", command=self.home_session_listbox.yview)
-            recent_scrollbar.pack(side=tk.RIGHT, fill=tk.Y, pady=(0,5))
+            recent_scrollbar.pack(side=tk.RIGHT, fill=tk.Y, pady=(0,3))
             self.home_session_listbox.config(yscrollcommand=recent_scrollbar.set)
             
-            # Populate the listbox
-            for session in reversed(self.session_history[-recent_sessions_to_show:]): # Show more logs
-                date_str = session.get("date", "Unknown")
+            for session in reversed(self.session_history[-recent_sessions_to_show:]): 
+                date_str = session.get("date", "Unknown")[:16] # Shorter date
                 correct = session.get("correct", 0)
                 total = session.get("total", 0)
                 accuracy = session.get("accuracy", 0)
                 avg_time = session.get("avg_time", 0)
                 level_at_end = session.get("level_at_end", "-")
                 
-                session_text = f"📅 {date_str} | Lvl: {level_at_end} | ✅ {correct}/{total} ({accuracy:.0f}%) | ⏱️ {avg_time:.1f}s avg"
+                session_text = f"{date_str} L{level_at_end}|{correct}/{total} ({accuracy:.0f}%)|{avg_time:.1f}s" # Compacted
                 self.home_session_listbox.insert(tk.END, session_text)
         else:
-            no_history_lf = ttk.LabelFrame(self.home_frame, text="Recent Activity", padding=15)
-            no_history_lf.pack(pady=20, padx=40, fill=tk.X)
+            no_history_lf = ttk.LabelFrame(self.home_frame, text="Recent Activity", padding=10) # Reduced
+            no_history_lf.pack(pady=15, padx=20, fill=tk.X)
             ttk.Label(no_history_lf, text="No game sessions recorded yet. Play a game to see your history!", 
-                      font=("Segoe UI Italic", 10), style="TLabel", wraplength=300, justify=tk.CENTER).pack(pady=10)
+                      font=("Segoe UI Italic", 9), style="TLabel", wraplength=280, justify=tk.CENTER).pack(pady=8)
     
     def update_xp_display(self):
         if hasattr(self, 'level_label'):
@@ -696,7 +612,7 @@ class MathSpeedTrainer:
 
     def open_stats_tab(self):
         self.notebook.select(self.stats_frame)
-        self.refresh_stats() # Ensure stats are current when tab is explicitly opened
+        self.refresh_stats()
 
     def open_settings_tab(self):
         self.notebook.select(self.settings_frame)
@@ -704,185 +620,164 @@ class MathSpeedTrainer:
     def setup_game_frame(self):
         for widget in self.game_frame.winfo_children(): widget.destroy() 
 
-        # ... (game_header setup as before) ...
-        self.game_header = ttk.Frame(self.game_frame, padding=(0, 0, 0, 10)) 
-        self.game_header.pack(fill=tk.X, pady=(0, 20))
+        self.game_header = ttk.Frame(self.game_frame, padding=(0, 0, 0, 8)) 
+        self.game_header.pack(fill=tk.X, pady=(0, 15)) # Reduced
         timer_frame = ttk.Frame(self.game_header) 
-        timer_frame.pack(side=tk.LEFT, padx=(0,20))
-        ttk.Label(timer_frame, text="⏳", font=("Segoe UI Symbol", 18), foreground=self.colors["ACCENT_COLOR_RED"]).pack(side=tk.LEFT, padx=(0,5)) 
+        timer_frame.pack(side=tk.LEFT, padx=(0,15))
+        ttk.Label(timer_frame, text="⏳", font=("Segoe UI Symbol", 16), foreground=self.colors["ACCENT_COLOR_RED"]).pack(side=tk.LEFT, padx=(0,3)) # Reduced icon size 
         self.timer_label = ttk.Label(timer_frame, text=f"Time: {self.game_duration}s", style="Timer.TLabel")
         self.timer_label.pack(side=tk.LEFT)
+        
         level_frame = ttk.Frame(self.game_header)
-        level_frame.pack(side=tk.LEFT, padx=(20,20), expand=True) 
-        ttk.Label(level_frame, text="🌟", font=("Segoe UI Symbol", 18), foreground=self.colors["PRIMARY_COLOR"]).pack(side=tk.LEFT, padx=(0,5))
+        level_frame.pack(side=tk.LEFT, padx=(15,15), expand=True) 
+        ttk.Label(level_frame, text="🌟", font=("Segoe UI Symbol", 16), foreground=self.colors["PRIMARY_COLOR"]).pack(side=tk.LEFT, padx=(0,3)) # Reduced
         self.game_level_label = ttk.Label(level_frame, text=f"Level: {self.current_level}", style="LevelInfo.TLabel")
         self.game_level_label.pack(side=tk.LEFT)
+        
         score_frame = ttk.Frame(self.game_header)
-        score_frame.pack(side=tk.RIGHT, padx=(20,0))
-        ttk.Label(score_frame, text="🎯", font=("Segoe UI Symbol", 18), foreground=self.colors["ACCENT_COLOR_GREEN"]).pack(side=tk.LEFT, padx=(0,5))
+        score_frame.pack(side=tk.RIGHT, padx=(15,0))
+        ttk.Label(score_frame, text="🎯", font=("Segoe UI Symbol", 16), foreground=self.colors["ACCENT_COLOR_GREEN"]).pack(side=tk.LEFT, padx=(0,3)) # Reduced
         self.score_label = ttk.Label(score_frame, text="Score: 0/0", style="Score.TLabel")
         self.score_label.pack(side=tk.LEFT)
 
-
-        question_display_lf = ttk.LabelFrame(self.game_frame, text="Current Question", padding=(20, 25))
-        question_display_lf.pack(pady=20, fill=tk.X, padx=20) 
+        question_display_lf = ttk.LabelFrame(self.game_frame, text="Current Question", padding=(15, 20)) # Reduced
+        question_display_lf.pack(pady=15, fill=tk.X, padx=15) # Reduced 
         self.question_label_frame = ttk.Frame(question_display_lf) 
         self.question_label_frame.pack(expand=True) 
         self.question_label_frame.configure(style="Secondary.TFrame") 
         self.question_label = ttk.Label(self.question_label_frame, text="Press Start to begin", style="Question.TLabel", anchor="center")
-        self.question_label.pack(pady=10) 
+        self.question_label.pack(pady=8) 
         
-        # --- Answer Input Area ---
-        self.answer_input_frame = ttk.Frame(self.game_frame, padding=(0,15,0,15))
-        self.answer_input_frame.pack(pady=10, expand=True) 
+        self.answer_input_frame = ttk.Frame(self.game_frame, padding=(0,10,0,10)) # Reduced
+        self.answer_input_frame.pack(pady=8, expand=True) 
 
         self.text_answer_frame = ttk.Frame(self.answer_input_frame) 
-        self.answer_entry = ttk.Entry(self.text_answer_frame, font=("Segoe UI Semibold", 24), width=8, justify="center") 
-        self.answer_entry.pack(pady=10, ipady=8) 
+        self.answer_entry = ttk.Entry(self.text_answer_frame, font=("Segoe UI Semibold", 20), width=7, justify="center") # Reduced font, width
+        self.answer_entry.pack(pady=8, ipady=5) # Reduced padding
         
         self.mc_answer_frame = ttk.Frame(self.answer_input_frame) 
         self.mc_buttons = []
-        mc_button_style = "MCQ.TButton" 
-        self.style.configure(mc_button_style, font=("Segoe UI Semibold", 14), padding=(15,10))
+        # MCQ.TButton style adjusted in apply_theme
         for i in range(4):
-            btn = ttk.Button(self.mc_answer_frame, text="", style=mc_button_style, width=10, 
+            btn = ttk.Button(self.mc_answer_frame, text="", style="MCQ.TButton", width=8, # Reduced width
                            command=lambda idx=i: self.check_mc_answer(idx))
-            btn.grid(row=i//2, column=i%2, padx=10, pady=10, ipadx=20, ipady=10) 
+            btn.grid(row=i//2, column=i%2, padx=8, pady=8, ipadx=10, ipady=5) # Reduced padding
             self.mc_buttons.append(btn)
         
-        # --- Initially hide answer input frames ---
         self.text_answer_frame.pack_forget()
         self.mc_answer_frame.pack_forget()
-        # self.update_game_answer_mode_ui() # Called by start_game or when settings change
         
-        # --- Control Buttons: Start/Stop ---
-        # ... (control_frame setup as before) ...
-        self.control_frame = ttk.Frame(self.game_frame, padding=(0,10,0,0)) 
-        self.control_frame.pack(pady=(20,0), side=tk.BOTTOM, fill=tk.X) 
+        self.control_frame = ttk.Frame(self.game_frame, padding=(0,8,0,0)) # Reduced
+        self.control_frame.pack(pady=(15,0), side=tk.BOTTOM, fill=tk.X) # Reduced 
         centered_control_frame = ttk.Frame(self.control_frame)
         centered_control_frame.pack() 
         centered_control_frame.configure(style="TFrame")
-        self.start_button = ttk.Button(centered_control_frame, text="▶ Start Game", command=self.start_game, style="Green.TButton", width=15)
-        self.start_button.pack(side=tk.LEFT, padx=10, ipady=5) 
-        self.stop_button = ttk.Button(centered_control_frame, text="⏹ Stop Game", command=self.stop_game, style="Red.TButton", state=tk.DISABLED, width=15)
-        self.stop_button.pack(side=tk.LEFT, padx=10, ipady=5)
+        self.start_button = ttk.Button(centered_control_frame, text="▶ Start", command=self.start_game, style="Green.TButton", width=12) # Reduced text, width
+        self.start_button.pack(side=tk.LEFT, padx=8, ipady=4) # Reduced
+        self.stop_button = ttk.Button(centered_control_frame, text="⏹ Stop", command=self.stop_game, style="Red.TButton", state=tk.DISABLED, width=12) # Reduced
+        self.stop_button.pack(side=tk.LEFT, padx=8, ipady=4) # Reduced
 
     def update_game_answer_mode_ui(self):
         if not hasattr(self, 'text_answer_frame'): return 
 
-        if self.game_active: # Only show if game is active
+        if self.game_active: 
             if self.answer_mode == "text":
                 self.mc_answer_frame.pack_forget()
-                self.text_answer_frame.pack() # Pack it to show
+                self.text_answer_frame.pack() 
                 if hasattr(self, 'answer_entry'): self.answer_entry.focus_set()
-            else: # mc mode
+            else: 
                 self.text_answer_frame.pack_forget()
-                self.mc_answer_frame.pack() # Pack it to show
-        else: # Game not active, hide both
+                self.mc_answer_frame.pack() 
+        else: 
             self.text_answer_frame.pack_forget()
             self.mc_answer_frame.pack_forget()
     
-# Inside MathSpeedTrainer class
-
     def setup_practice_frame(self):
         for widget in self.practice_frame.winfo_children():
             widget.destroy()
 
-        ttk.Label(self.practice_frame, text="Practice Mode", style="SubHeader.TLabel").pack(pady=(0,15), anchor="center")
+        ttk.Label(self.practice_frame, text="Practice Mode", style="SubHeader.TLabel").pack(pady=(0,10), anchor="center")
         
         self.options_main_frame_practice = ttk.Frame(self.practice_frame) 
-        self.options_main_frame_practice.pack(fill=tk.X, pady=(0,15))
+        self.options_main_frame_practice.pack(fill=tk.X, pady=(0,10))
 
-        # --- MODIFICATION: Frame for different practice type buttons ---
-        practice_type_selection_lf = ttk.LabelFrame(self.options_main_frame_practice, text="Choose Practice Type", padding=10)
-        practice_type_selection_lf.pack(side=tk.TOP, fill=tk.X, pady=(0,10))
+        practice_type_selection_lf = ttk.LabelFrame(self.options_main_frame_practice, text="Choose Practice Type", padding=8) # Reduced
+        practice_type_selection_lf.pack(side=tk.TOP, fill=tk.X, pady=(0,8))
 
-        ttk.Button(practice_type_selection_lf, text="Targeted Operations", command=self.show_targeted_op_practice_options, style="Accent.TButton").grid(row=0, column=0, padx=5, pady=5, sticky="ew")
-        ttk.Button(practice_type_selection_lf, text="Practice Mistakes", command=lambda: self.start_practice_specific_list("wrong_ones"), style="Red.TButton").grid(row=0, column=1, padx=5, pady=5, sticky="ew")
-        ttk.Button(practice_type_selection_lf, text="Practice Slow Ones", command=lambda: self.start_practice_specific_list("slow_ones"), style="TButton").grid(row=0, column=2, padx=5, pady=5, sticky="ew")
+        ttk.Button(practice_type_selection_lf, text="Targeted Operations", command=self.show_targeted_op_practice_options, style="Accent.TButton").grid(row=0, column=0, padx=3, pady=3, sticky="ew")
+        ttk.Button(practice_type_selection_lf, text="Practice Mistakes", command=lambda: self.start_practice_specific_list("wrong_ones"), style="Red.TButton").grid(row=0, column=1, padx=3, pady=3, sticky="ew")
+        ttk.Button(practice_type_selection_lf, text="Practice Slow Ones", command=lambda: self.start_practice_specific_list("slow_ones"), style="TButton").grid(row=0, column=2, padx=3, pady=3, sticky="ew")
         practice_type_selection_lf.grid_columnconfigure((0,1,2), weight=1)
 
-
-        # --- Frame for Targeted Operation Practice (initially hidden or shown by default) ---
         self.targeted_op_practice_options_frame = ttk.Frame(self.options_main_frame_practice)
-        # self.targeted_op_practice_options_frame.pack(fill=tk.X, pady=(0,15)) # Packed by show_targeted_op_practice_options
 
-        weakness_frame = ttk.LabelFrame(self.targeted_op_practice_options_frame, text="Your Weaknesses (Lowest Accuracy First)", padding=10)
-        weakness_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(0,10))
+        weakness_frame = ttk.LabelFrame(self.targeted_op_practice_options_frame, text="Your Weaknesses", padding=8) # Reduced
+        weakness_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(0,8))
         
-        self.weakness_list = tk.Listbox(weakness_frame, font=("Segoe UI", 10), height=5, relief="flat", borderwidth=1, 
+        self.weakness_list = tk.Listbox(weakness_frame, font=("Segoe UI", 9), height=4, relief="flat", borderwidth=1, # Reduced font, height
                                         bg=self.colors["LISTBOX_BG"], fg=self.colors["TEXT_COLOR"],
                                         selectbackground=self.colors["LISTBOX_SELECT_BG"], selectforeground=self.colors["LISTBOX_SELECT_FG"])
         self.weakness_list.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-        # ... (scrollbar for weakness_list as before) ...
         weakness_scrollbar = ttk.Scrollbar(weakness_frame, orient="vertical", command=self.weakness_list.yview)
         weakness_scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
         self.weakness_list.config(yscrollcommand=weakness_scrollbar.set)
 
-
-        practice_options_lf = ttk.LabelFrame(self.targeted_op_practice_options_frame, text="Practice Options", padding=10)
-        practice_options_lf.pack(side=tk.LEFT, fill=tk.Y, padx=(10,0))
-        # ... (Comboboxes for operation and question count as before) ...
+        practice_options_lf = ttk.LabelFrame(self.targeted_op_practice_options_frame, text="Options", padding=8) # Reduced
+        practice_options_lf.pack(side=tk.LEFT, fill=tk.Y, padx=(8,0))
+        
         op_select_frame = ttk.Frame(practice_options_lf)
-        op_select_frame.pack(fill=tk.X, pady=5)
-        ttk.Label(op_select_frame, text="Operation:", font=("Segoe UI", 10)).pack(side=tk.LEFT, padx=(0,5))
+        op_select_frame.pack(fill=tk.X, pady=3)
+        ttk.Label(op_select_frame, text="Op:", font=("Segoe UI", 9)).pack(side=tk.LEFT, padx=(0,3)) # Reduced text
         self.practice_operation_var = tk.StringVar(value="Based on weakness")
-        # ...
-        self.practice_op_combobox = ttk.Combobox(op_select_frame, textvariable=self.practice_operation_var, state="readonly", width=18, style="TCombobox")
+        self.practice_op_combobox = ttk.Combobox(op_select_frame, textvariable=self.practice_operation_var, state="readonly", width=15, style="TCombobox") # Reduced width
         self.practice_op_combobox.pack(side=tk.LEFT, expand=True, fill=tk.X)
         
         q_count_frame = ttk.Frame(practice_options_lf)
-        q_count_frame.pack(fill=tk.X, pady=5)
-        ttk.Label(q_count_frame, text="Questions:", font=("Segoe UI", 10)).pack(side=tk.LEFT, padx=(0,5))
+        q_count_frame.pack(fill=tk.X, pady=3)
+        ttk.Label(q_count_frame, text="Qty:", font=("Segoe UI", 9)).pack(side=tk.LEFT, padx=(0,3)) # Reduced text
         self.practice_question_count_var = tk.IntVar(value=10)
-        # ...
-        self.practice_q_count_combobox = ttk.Combobox(q_count_frame, textvariable=self.practice_question_count_var, state="readonly", width=5, style="TCombobox")
+        self.practice_q_count_combobox = ttk.Combobox(q_count_frame, textvariable=self.practice_question_count_var, state="readonly", width=4, style="TCombobox") # Reduced width
         self.practice_q_count_combobox.pack(side=tk.LEFT)
         
-        self.start_practice_button = ttk.Button(practice_options_lf, text="Start Practice", command=self.start_practice, style="Green.TButton", width=15) # This now starts "targeted op" practice
-        self.start_practice_button.pack(pady=(10,0), fill=tk.X)
+        self.start_practice_button = ttk.Button(practice_options_lf, text="Start Practice", command=self.start_practice, style="Green.TButton", width=12) # Reduced width
+        self.start_practice_button.pack(pady=(8,0), fill=tk.X)
         
-        # --- Practice Area (common for all practice types) ---
         self.practice_area = ttk.Frame(self.practice_frame) 
-        # ... (practice_question_label, hint_label, answer inputs, feedback, control buttons as before) ...
         self.practice_question_label_frame = ttk.Frame(self.practice_area)
-        self.practice_question_label_frame.pack(pady=20)
+        self.practice_question_label_frame.pack(pady=15) # Reduced
         self.practice_question_label = ttk.Label(self.practice_question_label_frame, text="", style="Question.TLabel")
         self.practice_question_label.pack()
         
-        self.hint_label = ttk.Label(self.practice_area, text="", font=("Segoe UI Italic", 11), wraplength=600, justify=tk.CENTER, foreground=self.colors["PRIMARY_COLOR"])
-        self.hint_label.pack(pady=10)
+        self.hint_label = ttk.Label(self.practice_area, text="", font=("Segoe UI Italic", 10), wraplength=500, justify=tk.CENTER, foreground=self.colors["PRIMARY_COLOR"]) # Reduced font
+        self.hint_label.pack(pady=8) # Reduced
         
         self.practice_answer_input_frame = ttk.Frame(self.practice_area)
-        self.practice_answer_input_frame.pack(pady=10)
+        self.practice_answer_input_frame.pack(pady=8) # Reduced
 
         self.practice_text_answer_frame = ttk.Frame(self.practice_answer_input_frame)
-        self.practice_answer_entry = ttk.Entry(self.practice_text_answer_frame, font=("Segoe UI Semibold", 18), width=10, justify="center")
-        self.practice_answer_entry.pack(pady=5, ipady=4)
+        self.practice_answer_entry = ttk.Entry(self.practice_text_answer_frame, font=("Segoe UI Semibold", 16), width=8, justify="center") # Reduced font, width
+        self.practice_answer_entry.pack(pady=3, ipady=3) # Reduced padding
         
         self.practice_mc_frame = ttk.Frame(self.practice_answer_input_frame)
         self.practice_mc_buttons = []
-        # ... (mc buttons setup)
-        for i in range(4):
-            btn = ttk.Button(self.practice_mc_frame, text="", style="TButton", width=10,
+        for i in range(4): # Uses TButton with general styles
+            btn = ttk.Button(self.practice_mc_frame, text="", style="MCQ.TButton", width=8, # Adjusted width
                            command=lambda idx=i: self.check_practice_mc_answer(idx))
-            btn.grid(row=i//2, column=i%2, padx=5, pady=5, ipadx=10, ipady=8)
+            btn.grid(row=i//2, column=i%2, padx=3, pady=3, ipadx=8, ipady=4) # Reduced padding
             self.practice_mc_buttons.append(btn)
 
-
-        self.practice_feedback_label = ttk.Label(self.practice_area, text="", font=("Segoe UI Semibold", 14)) 
-        self.practice_feedback_label.pack(pady=10)
+        self.practice_feedback_label = ttk.Label(self.practice_area, text="", font=("Segoe UI Semibold", 12)) # Reduced font
+        self.practice_feedback_label.pack(pady=8) # Reduced
 
         self.practice_control_buttons_frame = ttk.Frame(self.practice_area)
-        self.practice_control_buttons_frame.pack(pady=10)
-        self.practice_submit_button = ttk.Button(self.practice_control_buttons_frame, text="Submit Answer", command=self.check_practice_answer, style="Accent.TButton", width=15)
-        self.next_practice_q_button = ttk.Button(self.practice_control_buttons_frame, text="Next Question", command=self.next_practice_question, style="Accent.TButton", width=15)
-        self.stop_practice_button = ttk.Button(self.practice_control_buttons_frame, text="Stop Practice", command=self.end_practice_session, style="Red.TButton", width=15)
-        # Stop button initially hidden, shown when practice starts
+        self.practice_control_buttons_frame.pack(pady=8)
+        self.practice_submit_button = ttk.Button(self.practice_control_buttons_frame, text="Submit", command=self.check_practice_answer, style="Accent.TButton", width=10) # Reduced text, width
+        self.next_practice_q_button = ttk.Button(self.practice_control_buttons_frame, text="Next", command=self.next_practice_question, style="Accent.TButton", width=10) # Reduced text, width
+        self.stop_practice_button = ttk.Button(self.practice_control_buttons_frame, text="Stop", command=self.end_practice_session, style="Red.TButton", width=10) # Reduced text, width
 
-        self.update_weakness_list() # Populates combobox values
+        self.update_weakness_list() 
         self.update_practice_answer_mode_ui()
-        self.show_targeted_op_practice_options() # Show this by default
+        self.show_targeted_op_practice_options() 
 
     def update_practice_answer_mode_ui(self):
         if not hasattr(self, 'practice_text_answer_frame'): return 
@@ -891,7 +786,7 @@ class MathSpeedTrainer:
             self.practice_text_answer_frame.pack()
             self.practice_mc_frame.pack_forget()
             if self.practice_active:
-                self.practice_submit_button.pack(side=tk.LEFT, padx=5)
+                self.practice_submit_button.pack(side=tk.LEFT, padx=3)
                 if hasattr(self, 'practice_answer_entry'): self.practice_answer_entry.focus_set()
         else: 
             self.practice_text_answer_frame.pack_forget()
@@ -899,45 +794,39 @@ class MathSpeedTrainer:
             if hasattr(self, 'practice_submit_button'): self.practice_submit_button.pack_forget() 
         
         if self.practice_active and hasattr(self, 'practice_feedback_label') and self.practice_feedback_label.cget("text") != "":
-            if hasattr(self, 'next_practice_q_button'): self.next_practice_q_button.pack(side=tk.LEFT, padx=5)
+            if hasattr(self, 'next_practice_q_button'): self.next_practice_q_button.pack(side=tk.LEFT, padx=3)
             if self.answer_mode == "text" and hasattr(self, 'practice_submit_button'): self.practice_submit_button.pack_forget()
         else:
             if hasattr(self, 'next_practice_q_button'): self.next_practice_q_button.pack_forget()
-            if self.practice_active and self.answer_mode == "text" and hasattr(self, 'practice_submit_button'): self.practice_submit_button.pack(side=tk.LEFT, padx=5)
-
-
-
-
+            if self.practice_active and self.answer_mode == "text" and hasattr(self, 'practice_submit_button'): 
+                if not self.next_practice_q_button.winfo_ismapped(): # Only show submit if next is not shown
+                    self.practice_submit_button.pack(side=tk.LEFT, padx=3)
 
     def show_targeted_op_practice_options(self):
-        """Shows the UI for selecting operations, weaknesses, and question count."""
         if hasattr(self, 'targeted_op_practice_options_frame'):
-            self.targeted_op_practice_options_frame.pack(fill=tk.X, pady=(0,0)) # Show it
-        # Potentially hide other specific list practice UI elements if they exist and are visible
+            self.targeted_op_practice_options_frame.pack(fill=tk.X, pady=(0,0))
 
-    def start_practice(self): # This is now for "Targeted Operation" practice
-        self.current_practice_type = "targeted_op" # Identify the type
+    def start_practice(self): 
+        self.current_practice_type = "targeted_op" 
         selected_op_display = self.practice_operation_var.get()
         
         if selected_op_display == "Based on weakness":
-            # ... (existing logic to pick weakest op) ...
             if not self.weakness_list.get(0): 
-                messagebox.showinfo("Practice", "No weaknesses identified. Defaulting to Addition.", parent=self.root)
-                self.current_practice_op_for_session = "addition" # Use a session-specific var
+                messagebox.showinfo("Practice", "No weaknesses. Defaulting to Addition.", parent=self.root)
+                self.current_practice_op_for_session = "addition" 
             else:
                 weakest_op_str = self.weakness_list.get(0).split(":")[0].lower()
                 self.current_practice_op_for_session = weakest_op_str
         else: 
             self.current_practice_op_for_session = selected_op_display.lower()
 
-        # ... (rest of existing start_practice logic: check if op enabled, set question count) ...
         if not self.operations.get(self.current_practice_op_for_session, False) and self.current_practice_op_for_session not in ["addition", "subtraction", "multiplication", "division"]:
             enabled_ops_list = [op for op, enabled in self.operations.items() if enabled]
             if not enabled_ops_list:
                 messagebox.showerror("Error", "No operations enabled in settings.", parent=self.root)
                 return
             self.current_practice_op_for_session = random.choice(enabled_ops_list)
-            messagebox.showinfo("Practice", f"Selected practice operation was disabled. Practicing {self.current_practice_op_for_session.capitalize()} instead.", parent=self.root)
+            messagebox.showinfo("Practice", f"Selected op disabled. Practicing {self.current_practice_op_for_session.capitalize()} instead.", parent=self.root)
 
         self.practice_questions_total = self.practice_question_count_var.get()
         self.practice_questions_answered = 0
@@ -945,54 +834,42 @@ class MathSpeedTrainer:
         self.practice_active = True
 
         if hasattr(self, 'options_main_frame_practice'): self.options_main_frame_practice.pack_forget()
-        if hasattr(self, 'practice_area'): self.practice_area.pack(fill=tk.BOTH, expand=True, pady=10)
-        if hasattr(self, 'stop_practice_button'): self.stop_practice_button.pack(side=tk.RIGHT, padx=5)
+        if hasattr(self, 'practice_area'): self.practice_area.pack(fill=tk.BOTH, expand=True, pady=8)
+        if hasattr(self, 'stop_practice_button'): self.stop_practice_button.pack(side=tk.RIGHT, padx=3)
 
 
-        self.next_practice_question() # This will use self.current_practice_op_for_session
+        self.next_practice_question() 
         self.update_practice_answer_mode_ui()
 
 
     def start_practice_specific_list(self, list_type):
-        self.current_practice_type = list_type # "wrong_ones" or "slow_ones"
+        self.current_practice_type = list_type 
         
         if list_type == "wrong_ones":
-            self.current_practice_list = list(self.persistently_wrong_questions) # Work on a copy
+            self.current_practice_list = list(self.persistently_wrong_questions) 
             if not self.current_practice_list:
                 messagebox.showinfo("Practice Mistakes", "No mistakes recorded to practice!", parent=self.root)
                 return
-            practice_title = "Practicing Your Mistakes"
         elif list_type == "slow_ones":
             self.current_practice_list = list(self.persistently_slow_questions)
             if not self.current_practice_list:
-                messagebox.showinfo("Practice Slow Ones", "No slow questions recorded to practice!", parent=self.root)
+                messagebox.showinfo("Practice Slow Ones", "No slow questions recorded!", parent=self.root)
                 return
-            practice_title = "Practicing Your Slower Questions"
         else:
             return
 
-        random.shuffle(self.current_practice_list) # Shuffle the list for variety
+        random.shuffle(self.current_practice_list) 
         self.practice_questions_total = len(self.current_practice_list)
         self.practice_questions_answered = 0
         self.practice_correct_answers = 0
         self.practice_active = True
         
-        # Hide main options, show practice area
         if hasattr(self, 'options_main_frame_practice'): self.options_main_frame_practice.pack_forget()
-        if hasattr(self, 'practice_area'): self.practice_area.pack(fill=tk.BOTH, expand=True, pady=10)
-        if hasattr(self, 'stop_practice_button'): self.stop_practice_button.pack(side=tk.RIGHT, padx=5)
+        if hasattr(self, 'practice_area'): self.practice_area.pack(fill=tk.BOTH, expand=True, pady=8)
+        if hasattr(self, 'stop_practice_button'): self.stop_practice_button.pack(side=tk.RIGHT, padx=3)
 
-
-        # Update a label to show what kind of practice it is (optional)
-        # e.g., self.practice_mode_info_label.config(text=practice_title)
-
-        self.next_practice_question() # This will now use the specific list
+        self.next_practice_question() 
         self.update_practice_answer_mode_ui()
-
-
-
-
-
 
     def update_weakness_list(self):
         if not hasattr(self, 'weakness_list'): return 
@@ -1005,9 +882,9 @@ class MathSpeedTrainer:
                 accuracy = (stats["correct"] / total_answered) * 100
                 avg_time = stats["avg_time"]
                 weaknesses.append({"name": op.capitalize(), "accuracy": accuracy, "avg_time": avg_time, "total_answered": total_answered})
-        weaknesses.sort(key=lambda x: (x["accuracy"], -x["avg_time"]) if x["total_answered"] >=5 else (101, -x["avg_time"]))
+        weaknesses.sort(key=lambda x: (x["accuracy"], -x["avg_time"]) if x["total_answered"] >=3 else (101, -x["avg_time"])) # Min 3 for sort prio
         for weakness in weaknesses:
-            self.weakness_list.insert(tk.END, f"{weakness['name']}: {weakness['accuracy']:.1f}% ({weakness['avg_time']:.2f}s)")
+            self.weakness_list.insert(tk.END, f"{weakness['name']}: {weakness['accuracy']:.0f}% ({weakness['avg_time']:.1f}s)")
         
         if hasattr(self, 'practice_op_combobox'):
             current_selection = self.practice_operation_var.get()
@@ -1025,32 +902,26 @@ class MathSpeedTrainer:
             widget.destroy()
 
         header_frame = ttk.Frame(self.stats_frame)
-        header_frame.pack(fill=tk.X, pady=(0, 10))
+        header_frame.pack(fill=tk.X, pady=(0, 8)) # Reduced
         ttk.Label(header_frame, text="Your Statistics", style="SubHeader.TLabel").pack(anchor="center")
         
         self.stats_notebook = ttk.Notebook(self.stats_frame, style="TNotebook")
-        self.stats_notebook.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
+        self.stats_notebook.pack(fill=tk.BOTH, expand=True, padx=2, pady=2) # Reduced
         
-        self.overview_tab = ttk.Frame(self.stats_notebook, padding=15)
-        self.operations_tab = ttk.Frame(self.stats_notebook, padding=15)
-        self.progress_tab = ttk.Frame(self.stats_notebook, padding=15)
-        self.predictions_tab = ttk.Frame(self.stats_notebook, padding=15)
-        # --- MODIFICATION START for Time Trends Tab ---
-        self.time_trends_tab = ttk.Frame(self.stats_notebook, padding=15) # New Tab
-        # --- MODIFICATION END ---
+        self.overview_tab = ttk.Frame(self.stats_notebook, padding=10) # Reduced
+        self.operations_tab = ttk.Frame(self.stats_notebook, padding=10) # Reduced
+        self.progress_tab = ttk.Frame(self.stats_notebook, padding=10) # Reduced
+        self.predictions_tab = ttk.Frame(self.stats_notebook, padding=10) # Reduced
+        self.time_trends_tab = ttk.Frame(self.stats_notebook, padding=10) # Reduced
         
         self.stats_notebook.add(self.overview_tab, text="Overview")
         self.stats_notebook.add(self.operations_tab, text="Operations")
         self.stats_notebook.add(self.progress_tab, text="Progress")
         self.stats_notebook.add(self.predictions_tab, text="Predictions")
-        # --- MODIFICATION START for Time Trends Tab ---
-        self.stats_notebook.add(self.time_trends_tab, text="Time Trends") # Add new tab to notebook
+        self.stats_notebook.add(self.time_trends_tab, text="Time Trends") 
         
-        ttk.Button(self.stats_frame, text="Refresh Stats", command=self.refresh_stats, style="Accent.TButton", width=15).pack(pady=(10,0))
+        ttk.Button(self.stats_frame, text="Refresh Stats", command=self.refresh_stats, style="Accent.TButton", width=12).pack(pady=(8,0)) # Reduced width
         self.refresh_stats() 
-
-
-
 
     def refresh_stats(self):
         if not hasattr(self, 'overview_tab'): return 
@@ -1058,27 +929,24 @@ class MathSpeedTrainer:
         self.setup_operations_tab_content(self.operations_tab)
         self.setup_progress_tab_content(self.progress_tab)
         self.setup_predictions_tab_content(self.predictions_tab)
-        if hasattr(self, 'time_trends_tab'): # Ensure tab exists
-            self.setup_time_trends_tab_content(self.time_trends_tab) # New function to call
+        if hasattr(self, 'time_trends_tab'): 
+            self.setup_time_trends_tab_content(self.time_trends_tab) 
         self.update_weakness_list()
 
     def clear_tab_content(self, tab):
         for widget in tab.winfo_children():
             widget.destroy()
         
-        # Helper to destroy canvas and close figure
         def destroy_canvas_and_fig_from_info(canvas_info_dict):
             if canvas_info_dict and canvas_info_dict.get('canvas') and canvas_info_dict.get('fig'):
                 try:
-                    # Check if the canvas widget still exists before trying to destroy
                     if canvas_info_dict['canvas'].get_tk_widget().winfo_exists():
                         canvas_info_dict['canvas'].get_tk_widget().destroy()
-                    plt.close(canvas_info_dict['fig']) # Close the Matplotlib figure
+                    plt.close(canvas_info_dict['fig']) 
                 except Exception as e:
                     print(f"Error destroying canvas/fig: {e}")
-            return None # Return None to reset the attribute
+            return None 
 
-        # Corrected conditional checks to use the '_info' attributes
         if tab == self.overview_tab:
             self.overview_canvas_info = destroy_canvas_and_fig_from_info(self.overview_canvas_info)
         elif tab == self.operations_tab:
@@ -1095,49 +963,49 @@ class MathSpeedTrainer:
                 for op_name in list(self.op_time_trend_canvases_info.keys()): 
                     canvas_info_dict = self.op_time_trend_canvases_info.get(op_name)
                     if canvas_info_dict: 
-                        destroy_canvas_and_fig_from_info(canvas_info_dict) # This helper already returns None
+                        destroy_canvas_and_fig_from_info(canvas_info_dict) 
                 self.op_time_trend_canvases_info = {}
             
     def setup_overview_tab_content(self, tab):
         self.clear_tab_content(tab)
         
         top_frame = ttk.Frame(tab)
-        top_frame.pack(fill=tk.X, pady=(0,15))
+        top_frame.pack(fill=tk.X, pady=(0,10)) # Reduced
 
-        general_frame = ttk.LabelFrame(top_frame, text="General Statistics", padding=15)
-        general_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(0,10))
+        general_frame = ttk.LabelFrame(top_frame, text="General Stats", padding=10) # Reduced
+        general_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(0,5))
         
         total_questions_all_time = sum(stats["correct"] + stats["incorrect"] for stats in self.operation_stats.values())
         total_correct_all_time = sum(stats["correct"] for stats in self.operation_stats.values())
         accuracy_all_time = (total_correct_all_time / total_questions_all_time * 100) if total_questions_all_time > 0 else 0
 
-        ttk.Label(general_frame, text=f"Total Questions (All Time): {total_questions_all_time}", font=("Segoe UI", 10)).pack(anchor="w", pady=2)
-        ttk.Label(general_frame, text=f"Total Correct (All Time): {total_correct_all_time}", font=("Segoe UI", 10)).pack(anchor="w", pady=2)
-        ttk.Label(general_frame, text=f"Overall Accuracy (All Time): {accuracy_all_time:.1f}%", font=("Segoe UI", 10)).pack(anchor="w", pady=2)
-        ttk.Label(general_frame, text=f"Current Level: {self.current_level}", font=("Segoe UI", 10)).pack(anchor="w", pady=2)
-        ttk.Label(general_frame, text=f"XP: {self.current_xp}/{self.xp_needed}", font=("Segoe UI", 10)).pack(anchor="w", pady=2)
+        ttk.Label(general_frame, text=f"Total Q's: {total_questions_all_time}", font=("Segoe UI", 9)).pack(anchor="w", pady=1) # Compact
+        ttk.Label(general_frame, text=f"Total Correct: {total_correct_all_time}", font=("Segoe UI", 9)).pack(anchor="w", pady=1)
+        ttk.Label(general_frame, text=f"Overall Acc: {accuracy_all_time:.1f}%", font=("Segoe UI", 9)).pack(anchor="w", pady=1)
+        ttk.Label(general_frame, text=f"Current Lvl: {self.current_level}", font=("Segoe UI", 9)).pack(anchor="w", pady=1)
+        ttk.Label(general_frame, text=f"XP: {self.current_xp}/{self.xp_needed}", font=("Segoe UI", 9)).pack(anchor="w", pady=1)
 
-        history_frame = ttk.LabelFrame(top_frame, text="Session History (Recent)", padding=15)
-        history_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(10,0))
+        history_frame = ttk.LabelFrame(top_frame, text="Session History", padding=10) # Reduced
+        history_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(5,0))
         
-        self.session_listbox = tk.Listbox(history_frame, font=("Segoe UI", 9), height=6, relief="flat", borderwidth=1,
+        self.session_listbox = tk.Listbox(history_frame, font=("Segoe UI", 8), height=5, relief="flat", borderwidth=1, # Reduced font, height
                                           bg=self.colors["LISTBOX_BG"], fg=self.colors["TEXT_COLOR"],
                                           selectbackground=self.colors["LISTBOX_SELECT_BG"], selectforeground=self.colors["LISTBOX_SELECT_FG"])
         self.session_listbox.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
         history_scrollbar = ttk.Scrollbar(history_frame, orient="vertical", command=self.session_listbox.yview)
         history_scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
         self.session_listbox.config(yscrollcommand=history_scrollbar.set)
-        for session in reversed(self.session_history):
-            date = session.get("date", "N/A")
+        for session in reversed(self.session_history[-15:]): # Show more items in smaller list
+            date = session.get("date", "N/A")[:16] # Shorter date
             acc = session.get("accuracy", 0)
             avg_t = session.get("avg_time", 0)
-            self.session_listbox.insert(tk.END, f"{date}: {session['correct']}/{session['total']} ({acc:.1f}%) {avg_t:.2f}s avg")
+            self.session_listbox.insert(tk.END, f"{date}: {session['correct']}/{session['total']} ({acc:.0f}%) {avg_t:.1f}s") # Compact
 
-        vis_frame = ttk.LabelFrame(tab, text="Accuracy Trend (Last 10 Sessions)", padding=10)
-        vis_frame.pack(fill=tk.BOTH, expand=True, pady=(10,0))
-        if self.session_history:
+        vis_frame = ttk.LabelFrame(tab, text="Accuracy Trend (Last 10 Sessions)", padding=8) # Reduced
+        vis_frame.pack(fill=tk.BOTH, expand=True, pady=(8,0))
+        if self.session_history and len(self.session_history) >=2 :
             try:
-                fig, ax = plt.subplots(figsize=(6, 3)) 
+                fig, ax = plt.subplots(figsize=(5, 2.5))  # Reduced figsize
                 fig.patch.set_facecolor(self.colors["BG_COLOR"]) 
                 ax.set_facecolor(self.colors["BG_COLOR"])
 
@@ -1145,42 +1013,45 @@ class MathSpeedTrainer:
                 dates = [datetime.strptime(d, "%Y-%m-%d %H:%M") for d in dates_str]
                 accuracies = [session["accuracy"] for session in self.session_history[-10:]]
                 
-                ax.plot(dates, accuracies, marker='o', linestyle='-', color=self.colors["PRIMARY_COLOR"], linewidth=2)
+                ax.plot(dates, accuracies, marker='o', linestyle='-', color=self.colors["PRIMARY_COLOR"], linewidth=1.5, markersize=4) # Smaller marker
                 ax.set_ylim(0, 105)
-                ax.set_ylabel("Accuracy (%)", fontdict={'fontsize': 9, 'color': self.colors["TEXT_COLOR"]})
-                ax.tick_params(axis='x', labelsize=8, colors=self.colors["TEXT_COLOR"])
-                ax.tick_params(axis='y', labelsize=8, colors=self.colors["TEXT_COLOR"])
+                ax.set_ylabel("Accuracy (%)", fontdict={'fontsize': 8, 'color': self.colors["TEXT_COLOR"]}) # Reduced fontsize
+                ax.tick_params(axis='x', labelsize=7, colors=self.colors["TEXT_COLOR"], labelrotation=30) # Reduced fontsize, rotation
+                ax.tick_params(axis='y', labelsize=7, colors=self.colors["TEXT_COLOR"]) # Reduced fontsize
                 for spine in ax.spines.values(): spine.set_edgecolor(self.colors["TEXT_COLOR"])
-                fig.autofmt_xdate()
-                plt.tight_layout(pad=1.5)
+                # fig.autofmt_xdate() # Covered by labelrotation
+                plt.tight_layout(pad=1.0) # Reduced pad
                 
-                self.overview_canvas_widget = FigureCanvasTkAgg(fig, master=vis_frame)
-                self.overview_canvas_widget.draw()
-                self.overview_canvas_widget.get_tk_widget().pack(side=tk.TOP, fill=tk.BOTH, expand=True)
+                overview_canvas_obj = FigureCanvasTkAgg(fig, master=vis_frame)
+                overview_canvas_obj.draw()
+                overview_canvas_obj.get_tk_widget().pack(side=tk.TOP, fill=tk.BOTH, expand=True)
+                self.overview_canvas_info = {'canvas': overview_canvas_obj, 'fig': fig}
             except Exception as e:
-                ttk.Label(vis_frame, text=f"Error generating accuracy trend: {e}").pack()
+                ttk.Label(vis_frame, text=f"Error generating trend: {e}", font=("Segoe UI", 8)).pack()
         else:
-            ttk.Label(vis_frame, text="No session data for trend chart.").pack(pady=20)
+            ttk.Label(vis_frame, text="No session data for trend.", font=("Segoe UI", 9)).pack(pady=15) # Reduced
 
-    def setup_operations_tab_content(self, tab): # Example for fixing tick labels
+    def setup_operations_tab_content(self, tab): 
         self.clear_tab_content(tab)
-        # ... (op_stats_lf and op_tree setup as before) ...
-        op_stats_lf = ttk.LabelFrame(tab, text="Performance by Operation", padding=15)
-        op_stats_lf.pack(fill=tk.BOTH, expand=True, pady=(0,10))
-        # ... (op_tree setup)
+        op_stats_lf = ttk.LabelFrame(tab, text="Performance by Operation", padding=10) # Reduced
+        op_stats_lf.pack(fill=tk.BOTH, expand=True, pady=(0,8))
         cols = ("operation", "correct", "incorrect", "total", "accuracy", "avg_time")
-        self.op_tree = ttk.Treeview(op_stats_lf, columns=cols, show="headings", style="Treeview")
+        self.op_tree = ttk.Treeview(op_stats_lf, columns=cols, show="headings", style="Treeview") # Style already updated for Treeview
         
         self.op_tree.heading("operation", text="Operation")
-        self.op_tree.heading("correct", text="Correct")
-        self.op_tree.heading("incorrect", text="Incorrect")
+        self.op_tree.heading("correct", text="✓") # Symbol
+        self.op_tree.heading("incorrect", text="✗") # Symbol
         self.op_tree.heading("total", text="Total")
-        self.op_tree.heading("accuracy", text="Accuracy (%)")
-        self.op_tree.heading("avg_time", text="Avg Time (s)")
+        self.op_tree.heading("accuracy", text="Acc %") # Compact
+        self.op_tree.heading("avg_time", text="Avg Time") # Compact
 
-        self.op_tree.column("operation", width=120, anchor="w")
-        for col_name in cols[1:]:
-            self.op_tree.column(col_name, width=80, anchor="center")
+        self.op_tree.column("operation", width=100, anchor="w") # Adjusted
+        self.op_tree.column("correct", width=40, anchor="center") # Adjusted
+        self.op_tree.column("incorrect", width=40, anchor="center") # Adjusted
+        self.op_tree.column("total", width=50, anchor="center") # Adjusted
+        self.op_tree.column("accuracy", width=60, anchor="center") # Adjusted
+        self.op_tree.column("avg_time", width=70, anchor="center") # Adjusted
+
 
         valid_ops_for_chart = []
         for op_name, stats in self.operation_stats.items():
@@ -1189,7 +1060,7 @@ class MathSpeedTrainer:
             total = correct + incorrect
             accuracy = (correct / total * 100) if total > 0 else 0
             avg_time = stats["avg_time"]
-            self.op_tree.insert("", "end", values=(op_name.capitalize(), correct, incorrect, total, f"{accuracy:.1f}", f"{avg_time:.2f}"))
+            self.op_tree.insert("", "end", values=(op_name.capitalize(), correct, incorrect, total, f"{accuracy:.0f}", f"{avg_time:.2f}"))
             if total > 0:
                  valid_ops_for_chart.append({
                     "name": op_name.capitalize(), "correct": correct, "incorrect": incorrect, 
@@ -1198,12 +1069,12 @@ class MathSpeedTrainer:
         self.op_tree.pack(fill=tk.BOTH, expand=True)
 
 
-        vis_frame = ttk.LabelFrame(tab, text="Visualizations", padding=10)
-        vis_frame.pack(fill=tk.BOTH, expand=True, pady=(10,0))
+        vis_frame = ttk.LabelFrame(tab, text="Visualizations", padding=8) # Reduced
+        vis_frame.pack(fill=tk.BOTH, expand=True, pady=(8,0))
 
         if valid_ops_for_chart:
             try:
-                fig_ops, (ax1, ax2) = plt.subplots(1, 2, figsize=(8, 3)) 
+                fig_ops, (ax1, ax2) = plt.subplots(1, 2, figsize=(7, 2.5)) # Reduced figsize
                 fig_ops.patch.set_facecolor(self.colors["BG_COLOR"])
                 ax1.set_facecolor(self.colors["BG_COLOR"])
                 ax2.set_facecolor(self.colors["BG_COLOR"])
@@ -1213,98 +1084,97 @@ class MathSpeedTrainer:
                 incorrect_counts = [op['incorrect'] for op in valid_ops_for_chart]
                 avg_times_list = [op['avg_time'] for op in valid_ops_for_chart]
 
-                x_indices = np.arange(len(op_names_chart)) # Use indices for x-axis
+                x_indices = np.arange(len(op_names_chart)) 
                 width = 0.35
                 
                 ax1.bar(x_indices - width/2, correct_counts, width, label='Correct', color=self.colors["ACCENT_COLOR_GREEN"])
                 ax1.bar(x_indices + width/2, incorrect_counts, width, label='Incorrect', color=self.colors["ACCENT_COLOR_RED"])
-                ax1.set_title('Correct vs Incorrect', fontsize=10, color=self.colors["TEXT_COLOR"])
-                ax1.set_xticks(x_indices) # Set tick locations
-                ax1.set_xticklabels(op_names_chart, rotation=45, ha="right", fontsize=8, color=self.colors["TEXT_COLOR"]) # Then set labels
-                legend1 = ax1.legend(fontsize=8, facecolor=self.colors["SECONDARY_COLOR"], edgecolor=self.colors["TEXT_COLOR"])
+                ax1.set_title('Correct vs Incorrect', fontsize=9, color=self.colors["TEXT_COLOR"]) # Reduced
+                ax1.set_xticks(x_indices) 
+                ax1.set_xticklabels(op_names_chart, rotation=30, ha="right", fontsize=7, color=self.colors["TEXT_COLOR"]) # Reduced
+                legend1 = ax1.legend(fontsize=7, facecolor=self.colors["SECONDARY_COLOR"], edgecolor=self.colors["TEXT_COLOR"]) # Reduced
                 for text in legend1.get_texts(): text.set_color(self.colors["TEXT_COLOR"])
-                ax1.set_ylabel("Count", fontsize=9, color=self.colors["TEXT_COLOR"])
-                ax1.tick_params(axis='y', labelsize=8, colors=self.colors["TEXT_COLOR"])
+                ax1.set_ylabel("Count", fontsize=8, color=self.colors["TEXT_COLOR"]) # Reduced
+                ax1.tick_params(axis='y', labelsize=7, colors=self.colors["TEXT_COLOR"]) # Reduced
                 for spine in ax1.spines.values(): spine.set_edgecolor(self.colors["TEXT_COLOR"])
                 
-                ax2.bar(x_indices, avg_times_list, color=self.colors["PRIMARY_COLOR"]) # Use indices for bar plotting
-                ax2.set_title('Average Time', fontsize=10, color=self.colors["TEXT_COLOR"])
-                ax2.set_ylabel('Time (s)', fontsize=9, color=self.colors["TEXT_COLOR"])
-                ax2.set_xticks(x_indices) # Set tick locations
-                ax2.set_xticklabels(op_names_chart, rotation=45, ha="right", fontsize=8, color=self.colors["TEXT_COLOR"]) # Then set labels
-                ax2.tick_params(axis='y', labelsize=8, colors=self.colors["TEXT_COLOR"])
+                ax2.bar(x_indices, avg_times_list, color=self.colors["PRIMARY_COLOR"]) 
+                ax2.set_title('Average Time', fontsize=9, color=self.colors["TEXT_COLOR"]) # Reduced
+                ax2.set_ylabel('Time (s)', fontsize=8, color=self.colors["TEXT_COLOR"]) # Reduced
+                ax2.set_xticks(x_indices) 
+                ax2.set_xticklabels(op_names_chart, rotation=30, ha="right", fontsize=7, color=self.colors["TEXT_COLOR"]) # Reduced
+                ax2.tick_params(axis='y', labelsize=7, colors=self.colors["TEXT_COLOR"]) # Reduced
                 for spine in ax2.spines.values(): spine.set_edgecolor(self.colors["TEXT_COLOR"])
                 
-                plt.tight_layout(pad=1.5)
+                plt.tight_layout(pad=1.0) # Reduced
                 canvas_ops_obj = FigureCanvasTkAgg(fig_ops, master=vis_frame)
                 canvas_ops_obj.draw()
                 canvas_ops_obj.get_tk_widget().pack(side=tk.TOP, fill=tk.BOTH, expand=True)
-                self.operations_canvas_info = {'canvas': canvas_ops_obj, 'fig': fig_ops} # Store fig
+                self.operations_canvas_info = {'canvas': canvas_ops_obj, 'fig': fig_ops} 
             except Exception as e:
-                ttk.Label(vis_frame, text=f"Error generating operations chart: {e}").pack()
+                ttk.Label(vis_frame, text=f"Error generating charts: {e}", font=("Segoe UI", 8)).pack()
         else:
-            ttk.Label(vis_frame, text="No data for operation charts.").pack(pady=20)
+            ttk.Label(vis_frame, text="No data for operation charts.", font=("Segoe UI", 9)).pack(pady=15)
 
     def setup_progress_tab_content(self, tab):
         self.clear_tab_content(tab)
         
-        progress_lf = ttk.LabelFrame(tab, text="Level Progress", padding=15)
-        progress_lf.pack(fill=tk.X, pady=(0,15))
+        progress_lf = ttk.LabelFrame(tab, text="Level Progress", padding=10) # Reduced
+        progress_lf.pack(fill=tk.X, pady=(0,10))
         
-        ttk.Label(progress_lf, text=f"Current Level: {self.current_level}", style="LevelInfo.TLabel").pack(anchor="w", pady=2)
-        ttk.Label(progress_lf, text=f"XP: {self.current_xp}/{self.xp_needed}", style="LevelInfo.TLabel").pack(anchor="w", pady=2)
+        ttk.Label(progress_lf, text=f"Current Level: {self.current_level}", style="LevelInfo.TLabel").pack(anchor="w", pady=1)
+        ttk.Label(progress_lf, text=f"XP: {self.current_xp}/{self.xp_needed}", style="LevelInfo.TLabel").pack(anchor="w", pady=1)
         
-        xp_bar = ttk.Progressbar(progress_lf, orient="horizontal", length=400, mode="determinate", maximum=self.xp_needed, value=self.current_xp, style="TProgressbar")
-        xp_bar.pack(fill=tk.X, pady=(5,0))
+        xp_bar = ttk.Progressbar(progress_lf, orient="horizontal", length=300, mode="determinate", maximum=self.xp_needed, value=self.current_xp, style="TProgressbar") # Reduced length
+        xp_bar.pack(fill=tk.X, pady=(3,0))
 
-        vis_frame = ttk.LabelFrame(tab, text="Level Progression Over Sessions", padding=10)
-        vis_frame.pack(fill=tk.BOTH, expand=True, pady=(10,0))
-        if self.session_history:
+        vis_frame = ttk.LabelFrame(tab, text="Level Progression Over Sessions", padding=8) # Reduced
+        vis_frame.pack(fill=tk.BOTH, expand=True, pady=(8,0))
+        if self.session_history and len(self.session_history) >= 2:
             try:
-                fig, ax = plt.subplots(figsize=(7, 3.5))
+                fig, ax = plt.subplots(figsize=(6, 3)) # Reduced figsize
                 fig.patch.set_facecolor(self.colors["BG_COLOR"])
                 ax.set_facecolor(self.colors["BG_COLOR"])
 
                 session_indices = range(len(self.session_history))
                 levels_at_session_end = [session.get("level_at_end", 1) for session in self.session_history]
                 
-                ax.plot(session_indices, levels_at_session_end, marker='o', linestyle='-', color=self.colors["PRIMARY_COLOR"], linewidth=2)
-                ax.set_xlabel("Session Number", fontsize=9, color=self.colors["TEXT_COLOR"])
-                ax.set_ylabel("Level", fontsize=9, color=self.colors["TEXT_COLOR"])
+                ax.plot(session_indices, levels_at_session_end, marker='o', linestyle='-', color=self.colors["PRIMARY_COLOR"], linewidth=1.5, markersize=4) # Smaller
+                ax.set_xlabel("Session Number", fontsize=8, color=self.colors["TEXT_COLOR"]) # Reduced
+                ax.set_ylabel("Level", fontsize=8, color=self.colors["TEXT_COLOR"]) # Reduced
                 ax.set_ylim(bottom=0.5)
                 ax.yaxis.set_major_locator(plt.MaxNLocator(integer=True))
-                ax.tick_params(axis='x', labelsize=8, colors=self.colors["TEXT_COLOR"])
-                ax.tick_params(axis='y', labelsize=8, colors=self.colors["TEXT_COLOR"])
+                ax.tick_params(axis='x', labelsize=7, colors=self.colors["TEXT_COLOR"]) # Reduced
+                ax.tick_params(axis='y', labelsize=7, colors=self.colors["TEXT_COLOR"]) # Reduced
                 for spine in ax.spines.values(): spine.set_edgecolor(self.colors["TEXT_COLOR"])
                 if len(session_indices) > 0:
                     ax.set_xticks(session_indices)
-                    if len(session_indices) > 15:
-                         ax.xaxis.set_major_locator(plt.MaxNLocator(nbins=10, integer=True))
+                    if len(session_indices) > 10: # Show fewer ticks if many sessions
+                         ax.xaxis.set_major_locator(plt.MaxNLocator(nbins=8, integer=True))
 
-                plt.tight_layout(pad=1.5)
-                self.progress_canvas_widget = FigureCanvasTkAgg(fig, master=vis_frame)
-                self.progress_canvas_widget.draw()
-                self.progress_canvas_widget.get_tk_widget().pack(side=tk.TOP, fill=tk.BOTH, expand=True)
+                plt.tight_layout(pad=1.0) # Reduced
+                progress_canvas_obj = FigureCanvasTkAgg(fig, master=vis_frame)
+                progress_canvas_obj.draw()
+                progress_canvas_obj.get_tk_widget().pack(side=tk.TOP, fill=tk.BOTH, expand=True)
+                self.progress_canvas_info = {'canvas': progress_canvas_obj, 'fig': fig}
             except Exception as e:
-                ttk.Label(vis_frame, text=f"Error generating progress chart: {e}").pack()
+                ttk.Label(vis_frame, text=f"Error generating chart: {e}", font=("Segoe UI", 8)).pack()
         else:
-            ttk.Label(vis_frame, text="No session data for progress chart.").pack(pady=20)
-
-
+            ttk.Label(vis_frame, text="No session data for progress chart.", font=("Segoe UI", 9)).pack(pady=15)
 
 
     def setup_predictions_tab_content(self, tab):
         self.clear_tab_content(tab) 
         
-        predictions_info_lf = ttk.LabelFrame(tab, text="Performance Predictions", padding=15)
-        predictions_info_lf.pack(fill=tk.X, pady=(0,15))
+        predictions_info_lf = ttk.LabelFrame(tab, text="Performance Predictions", padding=10) # Reduced
+        predictions_info_lf.pack(fill=tk.X, pady=(0,10))
 
-        MIN_SESSIONS_FOR_PREDICTION = 7 
-        RECENT_SESSIONS_TO_CONSIDER_FOR_TREND = 15 
-        RECENT_SESSIONS_FOR_WAVE_PATTERN = 7 
+        MIN_SESSIONS_FOR_PREDICTION = 5 # Reduced for earlier predictions
+        RECENT_SESSIONS_TO_CONSIDER_FOR_TREND = 10
+        RECENT_SESSIONS_FOR_WAVE_PATTERN = 5 
 
         if len(self.session_history) < MIN_SESSIONS_FOR_PREDICTION:
-            ttk.Label(predictions_info_lf, text=f"Need at least {MIN_SESSIONS_FOR_PREDICTION} game sessions for predictions.", font=("Segoe UI", 10)).pack(pady=20)
+            ttk.Label(predictions_info_lf, text=f"Need {MIN_SESSIONS_FOR_PREDICTION}+ sessions for predictions.", font=("Segoe UI", 9)).pack(pady=15)
             return
 
         trend_history_slice = self.session_history[-RECENT_SESSIONS_TO_CONSIDER_FOR_TREND:]
@@ -1316,7 +1186,7 @@ class MathSpeedTrainer:
         can_predict_accuracy = len(accuracies_trend_hist) >= 3
 
         if not (can_predict_speed or can_predict_accuracy):
-            ttk.Label(predictions_info_lf, text="Not enough consistent recent data for main trend prediction.", font=("Segoe UI", 10)).pack(pady=20)
+            ttk.Label(predictions_info_lf, text="Not enough recent data for trend.", font=("Segoe UI", 9)).pack(pady=15)
             return
 
         trend_indices_fit_speed = np.arange(len(trend_history_slice) - len(avg_times_trend_hist), len(trend_history_slice)) if can_predict_speed else np.array([])
@@ -1324,18 +1194,17 @@ class MathSpeedTrainer:
         
         session_numbers_plot_trend = np.arange(max(0, len(self.session_history) - RECENT_SESSIONS_TO_CONSIDER_FOR_TREND), len(self.session_history))
         
-        self.pred_text_widget_ref = tk.Text(predictions_info_lf, height=5, width=70, relief="flat", font=("Segoe UI", 10), 
+        self.pred_text_widget_ref = tk.Text(predictions_info_lf, height=4, width=60, relief="flat", font=("Segoe UI", 9), # Reduced H, W, Font
                                        bg=self.colors["BG_COLOR"], fg=self.colors["TEXT_COLOR"], 
                                        wrap=tk.WORD, borderwidth=0)
-        self.pred_text_widget_ref.pack(anchor="w", padx=5, pady=5)
-        self.pred_text_widget_ref.tag_configure("bold", font=("Segoe UI Semibold", 10))
-        self.pred_text_widget_ref.tag_configure("small_italic", font=("Segoe UI Italic", 8))
+        self.pred_text_widget_ref.pack(anchor="w", padx=3, pady=3)
+        self.pred_text_widget_ref.tag_configure("bold", font=("Segoe UI Semibold", 9)) # Reduced
+        self.pred_text_widget_ref.tag_configure("small_italic", font=("Segoe UI Italic", 7)) # Reduced
 
-        prediction_horizon_sessions = 30 
+        prediction_horizon_sessions = 20 # Reduced horizon for faster calc/display
         future_trend_indices_pred = np.arange(len(trend_history_slice), len(trend_history_slice) + prediction_horizon_sessions)
         future_session_numbers_plot = np.arange(len(self.session_history), len(self.session_history) + prediction_horizon_sessions)
 
-        # --- MODIFIED Helper function to extract and apply fluctuation pattern with randomness ---
         def get_randomized_fluctuation_pattern(historical_data, num_pattern_sessions, horizon_length, fit_degree=1, amplitude_variation_factor=0.2):
             if len(historical_data) < num_pattern_sessions or num_pattern_sessions < 2:
                 return np.zeros(horizon_length) 
@@ -1346,18 +1215,14 @@ class MathSpeedTrainer:
             try:
                 p_pattern_trend = np.polyfit(pattern_indices, pattern_data, fit_degree)
                 local_trend_line = np.poly1d(p_pattern_trend)(pattern_indices)
-                residuals_base = pattern_data - local_trend_line # This is our core wave shape
+                residuals_base = pattern_data - local_trend_line 
                 
                 generated_fluctuations = np.zeros(horizon_length)
                 len_residuals = len(residuals_base)
 
                 for i in range(0, horizon_length, len_residuals):
                     segment_len = min(len_residuals, horizon_length - i)
-                    # Apply a random amplitude scaling to this segment of the pattern
                     random_amplitude_scale = 1.0 + random.uniform(-amplitude_variation_factor, amplitude_variation_factor)
-                    
-                    # Take a segment of the base residuals (possibly wrapped)
-                    # And apply random phase shift by selecting a random start point in residuals_base
                     start_index_in_residuals = random.randint(0, len_residuals -1)
                     
                     current_segment_pattern = np.zeros(segment_len)
@@ -1369,7 +1234,6 @@ class MathSpeedTrainer:
                 return generated_fluctuations
             except np.linalg.LinAlgError: 
                 return np.zeros(horizon_length)
-        # --- End helper function ---
 
         predicted_time_30_sessions_trend = None
         poly_speed_trend = None
@@ -1385,19 +1249,17 @@ class MathSpeedTrainer:
                 predicted_time_30_sessions_trend = max(0.5, predicted_time_30_sessions_trend) 
                 
                 current_avg_time = avg_times_trend_hist[-1]
-                self.pred_text_widget_ref.insert(tk.END, "Avg. Time/Question (Trend): ", "bold")
-                self.pred_text_widget_ref.insert(tk.END, f"Current {current_avg_time:.2f}s → Predicted {predicted_time_30_sessions_trend:.2f}s\n")
+                self.pred_text_widget_ref.insert(tk.END, "Avg. Time (Trend): ", "bold")
+                self.pred_text_widget_ref.insert(tk.END, f"{current_avg_time:.1f}s → {predicted_time_30_sessions_trend:.1f}s\n")
 
                 if len(avg_times_trend_hist) >= RECENT_SESSIONS_FOR_WAVE_PATTERN:
                     speed_fluctuations = get_randomized_fluctuation_pattern(
-                        avg_times_trend_hist, 
-                        RECENT_SESSIONS_FOR_WAVE_PATTERN,
-                        prediction_horizon_sessions,
-                        amplitude_variation_factor=0.3 # Time can vary a bit more
+                        avg_times_trend_hist, RECENT_SESSIONS_FOR_WAVE_PATTERN,
+                        prediction_horizon_sessions, amplitude_variation_factor=0.3 
                     )
             except Exception as e:
-                 self.pred_text_widget_ref.insert(tk.END, "Avg. Time/Question (Trend): ", "bold")
-                 self.pred_text_widget_ref.insert(tk.END, "Prediction unavailable.\n")
+                 self.pred_text_widget_ref.insert(tk.END, "Avg. Time (Trend): ", "bold")
+                 self.pred_text_widget_ref.insert(tk.END, "N/A.\n")
 
         predicted_acc_30_sessions_trend = None
         poly_acc_trend = None
@@ -1414,116 +1276,108 @@ class MathSpeedTrainer:
                 
                 current_accuracy = accuracies_trend_hist[-1]
                 self.pred_text_widget_ref.insert(tk.END, "Accuracy (Trend): ", "bold")
-                self.pred_text_widget_ref.insert(tk.END, f"Current {current_accuracy:.1f}% → Predicted {predicted_acc_30_sessions_trend:.1f}%\n")
+                self.pred_text_widget_ref.insert(tk.END, f"{current_accuracy:.0f}% → {predicted_acc_30_sessions_trend:.0f}%\n") # Use .0f for acc
 
                 if len(accuracies_trend_hist) >= RECENT_SESSIONS_FOR_WAVE_PATTERN:
                     acc_fluctuations = get_randomized_fluctuation_pattern(
-                        accuracies_trend_hist, 
-                        RECENT_SESSIONS_FOR_WAVE_PATTERN,
-                        prediction_horizon_sessions,
-                        amplitude_variation_factor=0.15 # Accuracy fluctuations should be smaller
+                        accuracies_trend_hist, RECENT_SESSIONS_FOR_WAVE_PATTERN,
+                        prediction_horizon_sessions, amplitude_variation_factor=0.15 
                     )
             except Exception as e:
                 self.pred_text_widget_ref.insert(tk.END, "Accuracy (Trend): ", "bold")
-                self.pred_text_widget_ref.insert(tk.END, "Prediction unavailable.\n")
+                self.pred_text_widget_ref.insert(tk.END, "N/A.\n")
         
-        self.pred_text_widget_ref.insert(tk.END, f"\nPredictions based on trend of last {len(trend_history_slice)} sessions, with visual fluctuations from last {RECENT_SESSIONS_FOR_WAVE_PATTERN} sessions.", "small_italic")
+        self.pred_text_widget_ref.insert(tk.END, f"\nTrends: last {len(trend_history_slice)} sess. Fluctuations: last {RECENT_SESSIONS_FOR_WAVE_PATTERN} sess.", "small_italic") # Compact
         self.pred_text_widget_ref.config(state=tk.DISABLED)
 
-        vis_frame = ttk.LabelFrame(tab, text="Prediction Visualizations", padding=10)
-        vis_frame.pack(fill=tk.BOTH, expand=True, pady=(10,0))
+        vis_frame = ttk.LabelFrame(tab, text="Prediction Visualizations", padding=8) # Reduced
+        vis_frame.pack(fill=tk.BOTH, expand=True, pady=(8,0))
         
         try:
-            fig, ax1 = plt.subplots(figsize=(8, 3.5)) 
+            fig, ax1 = plt.subplots(figsize=(7, 3)) # Reduced figsize
             fig.patch.set_facecolor(self.colors["BG_COLOR"])
             ax1.set_facecolor(self.colors["BG_COLOR"])
 
             color_time = self.colors["ACCENT_COLOR_RED"]
-            ax1.set_xlabel('Session Number (Overall)', fontsize=9, color=self.colors["TEXT_COLOR"])
-            ax1.set_ylabel('Avg. Time (s)', color=color_time, fontsize=9)
+            ax1.set_xlabel('Session Number', fontsize=8, color=self.colors["TEXT_COLOR"]) # Reduced
+            ax1.set_ylabel('Avg. Time (s)', color=color_time, fontsize=8) # Reduced
 
-            # --- Small overall noise parameters ---
             overall_noise_amplitude_time = 0.05 * np.mean(avg_times_trend_hist) if avg_times_trend_hist else 0.1
-            overall_noise_amplitude_acc = 0.5 # Small absolute noise for accuracy %
+            overall_noise_amplitude_acc = 0.5 
 
             if can_predict_speed and poly_speed_trend is not None:
-                ax1.plot(session_numbers_plot_trend[-len(avg_times_trend_hist):], avg_times_trend_hist, color=color_time, marker='o', linestyle='-', label='Recent Avg. Time')
+                ax1.plot(session_numbers_plot_trend[-len(avg_times_trend_hist):], avg_times_trend_hist, color=color_time, marker='o', linestyle='-', markersize=3, label='Recent Avg. Time') # Smaller marker
                 
                 base_future_speed_trend = poly_speed_trend(future_trend_indices_pred)
                 visual_future_speed_trend = base_future_speed_trend + speed_fluctuations
-                
-                # Add a tiny bit of overall random noise for less smoothness
                 visual_future_speed_trend += np.random.normal(0, overall_noise_amplitude_time, len(visual_future_speed_trend))
                 visual_future_speed_trend = np.maximum(0.5, visual_future_speed_trend) 
                 
                 ax1.plot(future_session_numbers_plot, visual_future_speed_trend, color=color_time, linestyle='--', label='Predicted Avg. Time')
 
-            ax1.tick_params(axis='y', labelcolor=color_time, labelsize=8, colors=self.colors["TEXT_COLOR"])
-            ax1.tick_params(axis='x', labelsize=8, colors=self.colors["TEXT_COLOR"])
+            ax1.tick_params(axis='y', labelcolor=color_time, labelsize=7, colors=self.colors["TEXT_COLOR"]) # Reduced
+            ax1.tick_params(axis='x', labelsize=7, colors=self.colors["TEXT_COLOR"]) # Reduced
             if can_predict_speed and any(t > 0 for t in avg_times_trend_hist): 
                  ax1.invert_yaxis() 
             for spine in ax1.spines.values(): spine.set_edgecolor(self.colors["TEXT_COLOR"])
 
             ax2 = ax1.twinx()
             color_acc = self.colors["PRIMARY_COLOR"]
-            ax2.set_ylabel('Accuracy (%)', color=color_acc, fontsize=9)
+            ax2.set_ylabel('Accuracy (%)', color=color_acc, fontsize=8) # Reduced
 
             if can_predict_accuracy and poly_acc_trend is not None:
-                ax2.plot(session_numbers_plot_trend[-len(accuracies_trend_hist):], accuracies_trend_hist, color=color_acc, marker='s', linestyle='-', label='Recent Accuracy')
+                ax2.plot(session_numbers_plot_trend[-len(accuracies_trend_hist):], accuracies_trend_hist, color=color_acc, marker='s', linestyle='-', markersize=3, label='Recent Accuracy') # Smaller marker
 
                 base_future_acc_trend = poly_acc_trend(future_trend_indices_pred)
                 visual_future_acc_trend = base_future_acc_trend + acc_fluctuations
-                
-                # Add a tiny bit of overall random noise
                 visual_future_acc_trend += np.random.normal(0, overall_noise_amplitude_acc, len(visual_future_acc_trend))
                 visual_future_acc_trend = np.clip(visual_future_acc_trend, 0, 100) 
 
                 ax2.plot(future_session_numbers_plot, visual_future_acc_trend, color=color_acc, linestyle='--', label='Predicted Accuracy')
                 
-            ax2.tick_params(axis='y', labelcolor=color_acc, labelsize=8, colors=self.colors["TEXT_COLOR"])
+            ax2.tick_params(axis='y', labelcolor=color_acc, labelsize=7, colors=self.colors["TEXT_COLOR"]) # Reduced
             ax2.set_ylim(0, 105)
             for spine in ax2.spines.values(): spine.set_edgecolor(self.colors["TEXT_COLOR"])
             
             lines, labels = ax1.get_legend_handles_labels()
             lines2, labels2 = ax2.get_legend_handles_labels()
-            legend = ax2.legend(lines + lines2, labels + labels2, loc='lower center', bbox_to_anchor=(0.5, -0.40), ncol=2, fontsize=8, frameon=False) 
+            legend = ax2.legend(lines + lines2, labels + labels2, loc='lower center', bbox_to_anchor=(0.5, -0.35), ncol=2, fontsize=7, frameon=False) # Reduced, adjusted anchor
             for text in legend.get_texts(): text.set_color(self.colors["TEXT_COLOR"])
             
-            plt.title("Performance Trends and Future Prediction", fontsize=10, color=self.colors["TEXT_COLOR"])
-            fig.tight_layout(rect=[0, 0.15, 1, 1]) 
+            plt.title("Performance Trends & Prediction", fontsize=9, color=self.colors["TEXT_COLOR"]) # Reduced
+            fig.tight_layout(rect=[0, 0.12, 1, 1]) # Adjusted rect
             
-            self.predictions_canvas_widget = FigureCanvasTkAgg(fig, master=vis_frame)
-            self.predictions_canvas_widget.draw()
-            self.predictions_canvas_widget.get_tk_widget().pack(side=tk.TOP, fill=tk.BOTH, expand=True)
+            predictions_canvas_obj = FigureCanvasTkAgg(fig, master=vis_frame)
+            predictions_canvas_obj.draw()
+            predictions_canvas_obj.get_tk_widget().pack(side=tk.TOP, fill=tk.BOTH, expand=True)
+            self.predictions_canvas_info = {'canvas': predictions_canvas_obj, 'fig': fig}
         except Exception as e:
-            ttk.Label(vis_frame, text=f"Error generating prediction chart: {e}").pack()
+            ttk.Label(vis_frame, text=f"Error generating chart: {e}", font=("Segoe UI", 8)).pack()
     
     def setup_settings_frame(self):
         for widget in self.settings_frame.winfo_children():
             widget.destroy()
 
-        ttk.Label(self.settings_frame, text="Application Settings", style="SubHeader.TLabel").pack(pady=(0,20), anchor="center")
+        ttk.Label(self.settings_frame, text="Application Settings", style="SubHeader.TLabel").pack(pady=(0,15), anchor="center") # Reduced
 
         main_settings_frame = ttk.Frame(self.settings_frame)
         main_settings_frame.pack(fill=tk.BOTH, expand=True)
 
-        # ... (your existing theme, duration, operations, answer mode LabelFrames) ...
-        theme_lf = ttk.LabelFrame(main_settings_frame, text="Appearance Theme", padding=15)
-        theme_lf.pack(pady=10, fill="x", padx=20)
+        theme_lf = ttk.LabelFrame(main_settings_frame, text="Appearance Theme", padding=10) # Reduced
+        theme_lf.pack(pady=8, fill="x", padx=15) # Reduced
         self.theme_var = tk.StringVar(value=self.theme)
-        ttk.Radiobutton(theme_lf, text="Light Mode", variable=self.theme_var, value="light", style="TRadiobutton").pack(anchor="w", pady=3)
-        ttk.Radiobutton(theme_lf, text="Dark Mode", variable=self.theme_var, value="dark", style="TRadiobutton").pack(anchor="w", pady=3)
+        ttk.Radiobutton(theme_lf, text="Light Mode", variable=self.theme_var, value="light", style="TRadiobutton").pack(anchor="w", pady=2) # Reduced
+        ttk.Radiobutton(theme_lf, text="Dark Mode", variable=self.theme_var, value="dark", style="TRadiobutton").pack(anchor="w", pady=2) # Reduced
 
-
-        duration_lf = ttk.LabelFrame(main_settings_frame, text="Game Duration", padding=15)
-        duration_lf.pack(pady=10, fill="x", padx=20)
-        ttk.Label(duration_lf, text="Duration (seconds):", font=("Segoe UI", 10)).pack(side=tk.LEFT, padx=(0,10))
+        duration_lf = ttk.LabelFrame(main_settings_frame, text="Game Duration", padding=10) # Reduced
+        duration_lf.pack(pady=8, fill="x", padx=15) # Reduced
+        ttk.Label(duration_lf, text="Duration (sec):", font=("Segoe UI", 9)).pack(side=tk.LEFT, padx=(0,8)) # Reduced text, padding
         self.duration_var = tk.IntVar(value=self.game_duration)
         duration_spinbox = ttk.Spinbox(duration_lf, from_=30, to=300, increment=15, textvariable=self.duration_var, width=5, style="TSpinbox")
         duration_spinbox.pack(side=tk.LEFT)
 
-        ops_lf = ttk.LabelFrame(main_settings_frame, text="Enabled Operations", padding=15)
-        ops_lf.pack(pady=10, fill="x", padx=20)
+        ops_lf = ttk.LabelFrame(main_settings_frame, text="Enabled Operations", padding=10) # Reduced
+        ops_lf.pack(pady=8, fill="x", padx=15) # Reduced
         self.op_vars = {}
         op_keys = list(self.operations.keys())
         cols = 3 
@@ -1531,55 +1385,50 @@ class MathSpeedTrainer:
             var = tk.BooleanVar(value=self.operations.get(op_name, True))
             self.op_vars[op_name] = var
             cb = ttk.Checkbutton(ops_lf, text=op_name.capitalize(), variable=var, style="TCheckbutton")
-            cb.grid(row=i//cols, column=i%cols, sticky="w", padx=10, pady=5)
+            cb.grid(row=i//cols, column=i%cols, sticky="w", padx=8, pady=3) # Reduced padding
         
-        answer_mode_lf = ttk.LabelFrame(main_settings_frame, text="Answer Input Mode", padding=15)
-        answer_mode_lf.pack(pady=10, fill="x", padx=20)
+        answer_mode_lf = ttk.LabelFrame(main_settings_frame, text="Answer Input Mode", padding=10) # Reduced
+        answer_mode_lf.pack(pady=8, fill="x", padx=15) # Reduced
         self.answer_mode_var = tk.StringVar(value=self.answer_mode)
-        ttk.Radiobutton(answer_mode_lf, text="Text Input (More XP)", variable=self.answer_mode_var, value="text", style="TRadiobutton").pack(anchor="w", pady=3)
-        ttk.Radiobutton(answer_mode_lf, text="Multiple Choice (Less XP)", variable=self.answer_mode_var, value="mc", style="TRadiobutton").pack(anchor="w", pady=3)
+        ttk.Radiobutton(answer_mode_lf, text="Text Input (More XP)", variable=self.answer_mode_var, value="text", style="TRadiobutton").pack(anchor="w", pady=2) # Reduced
+        ttk.Radiobutton(answer_mode_lf, text="Multiple Choice (Less XP)", variable=self.answer_mode_var, value="mc", style="TRadiobutton").pack(anchor="w", pady=2) # Reduced
 
-        ttk.Button(main_settings_frame, text="Save Settings", command=self.save_settings, style="Green.TButton", width=18).pack(pady=20) # Adjusted pady
+        ttk.Button(main_settings_frame, text="Save Settings", command=self.save_settings, style="Green.TButton", width=15).pack(pady=15) # Reduced width, padding
 
-        # --- MODIFICATION: Add Support Button ---
-        support_button_frame = ttk.Frame(main_settings_frame) # Use a frame to center or position if needed
-        support_button_frame.pack(pady=(10, 0), fill=tk.X) # Add some space above
-
-        # Define a new style for the pink button if it doesn't fit existing ones
-        # This style will be configured in apply_theme
-        self.style.configure("Pink.TButton", font=("Segoe UI Semibold", 10), padding=(8,4))
-        # The actual background/foreground will be set in apply_theme based on current theme for contrast
-
+        support_button_frame = ttk.Frame(main_settings_frame) 
+        support_button_frame.pack(pady=(8, 0), fill=tk.X) 
+        # Pink.TButton style already updated
         support_btn = ttk.Button(support_button_frame, text="Click me ♡",
                                  command=self.open_support_window,
-                                 style="Pink.TButton", width=15) # Use a distinct style
-        support_btn.pack(pady=5) # Pack it within its frame
+                                 style="Pink.TButton", width=12) # Reduced width
+        support_btn.pack(pady=3) 
 
-        # --- MODIFICATION: Add Delete Data Section ---
-        delete_data_lf = ttk.LabelFrame(main_settings_frame, text="Data Management", padding=15)
-        delete_data_lf.pack(pady=10, fill="x", padx=20)
+        delete_data_lf = ttk.LabelFrame(main_settings_frame, text="Data Management", padding=10) # Reduced
+        delete_data_lf.pack(pady=8, fill="x", padx=15) # Reduced
+
+        # Dynamically calculate wraplength in case main_settings_frame width is not yet determined
+        # Using a placeholder value for now, will attempt to update it if frame resizes
+        self._delete_info_label_wraplength = 500 # default, large enough for initial setup
 
         delete_info_label = ttk.Label(delete_data_lf, 
                                       text="Warning: This will permanently delete all your progress, statistics, and settings, including your initial skill assessment. The application will effectively reset.",
-                                      wraplength=main_settings_frame.winfo_width() - 80, # Adjust wraplength dynamically
-                                      justify=tk.LEFT, style="TLabel", font=("Segoe UI Italic", 9))
-        delete_info_label.pack(anchor="w", pady=(0,10))
+                                      wraplength=self._delete_info_label_wraplength, 
+                                      justify=tk.LEFT, style="TLabel", font=("Segoe UI Italic", 8)) # Reduced font
+        delete_info_label.pack(anchor="w", pady=(0,8)) # Reduced padding
         
-        # Bind to update wraplength if window resizes (optional, can be tricky)
-        # main_settings_frame.bind("<Configure>", lambda e: delete_info_label.config(wraplength=e.width - 80))
-
+        def update_wraplength(event, label_widget):
+            # Subtract some padding/margin
+            new_wraplength = max(100, event.width - 40)
+            label_widget.config(wraplength=new_wraplength)
+        
+        # Bind to update wraplength if settings_frame resizes.
+        # We bind to settings_frame as main_settings_frame might not exist early enough.
+        self.settings_frame.bind("<Configure>", lambda e, lbl=delete_info_label: update_wraplength(e, lbl))
 
         delete_btn = ttk.Button(delete_data_lf, text="Delete All My Data",
                                 command=self.confirm_delete_all_data,
-                                style="Red.TButton", width=20)
-        delete_btn.pack(pady=5)
-        # --- END MODIFICATION ---
-
-
-
-
-
-
+                                style="Red.TButton", width=18) # Reduced width
+        delete_btn.pack(pady=3) # Reduced padding
 
     def confirm_delete_all_data(self):
         response = messagebox.askyesno("Confirm Deletion", 
@@ -1589,157 +1438,127 @@ class MathSpeedTrainer:
             self.delete_all_data_action()
 
     def delete_all_data_action(self):
-        # 1. Delete the data file
         try:
             if os.path.exists(self.user_data_file):
                 os.remove(self.user_data_file)
                 print(f"User data file {self.user_data_file} deleted.")
         except OSError as e:
             messagebox.showerror("Error", f"Could not delete data file: {e}\nPlease try deleting it manually:\n{self.user_data_file}", parent=self.root)
-            return # Stop if file deletion fails
+            return 
 
-        # 2. Reset all relevant self attributes to defaults
         self.current_level = 1
         self.current_xp = 0
         self.xp_needed = self.calculate_xp_for_level(2)
         self.session_history = []
-        self.operations = { # Reset to default operations enabled
+        self.operations = { 
             "addition": True, "subtraction": True, "multiplication": True, "division": True,
             "powers": False, "roots": False, "percentages": False
         }
         self.answer_mode = "text"
-        self.theme = "light" # Reset theme to default
+        self.theme = "light" 
         self.operation_stats = {
             op: {"correct": 0, "incorrect": 0, "avg_time": 0.0, "total_answered_for_avg": 0}
             for op in self.operations.keys()
         }
         self.persistently_wrong_questions = []
         self.persistently_slow_questions = []
-        self.initial_assessment_done = False # This is key for re-prompting
+        self.initial_assessment_done = False 
         self.self_assessment_level = "good"
 
-        # 3. Inform user and suggest restart / or attempt a soft reset
-        messagebox.showinfo("Data Deleted", "All your data has been deleted. The application will now reset to its initial state.", parent=self.root)
+        messagebox.showinfo("Data Deleted", "All data deleted. Application will reset to initial state.", parent=self.root)
         
-        # Soft reset: Re-initialize UI components
-        # This is a bit of a heavy-handed way to "restart" without actually exiting and relaunching.
-        # It might not be perfect for all scenarios but can work for many.
-        
-        # Destroy all widgets in notebook tabs first
         for tab_frame_name in ["home_frame", "game_frame", "practice_frame", "stats_frame", "settings_frame"]:
             if hasattr(self, tab_frame_name):
                 tab_widget = getattr(self, tab_frame_name)
                 for widget in tab_widget.winfo_children():
                     widget.destroy()
         
-        # Re-apply theme (important after resetting self.theme)
         self.apply_theme()
 
-        # Re-setup all frames
         self.setup_home_frame()
         self.setup_game_frame()
         self.setup_practice_frame()
         self.setup_stats_frame()
-        self.setup_settings_frame() # This will now show default settings
+        self.setup_settings_frame() 
 
-        # Switch to home tab
         if hasattr(self, 'notebook') and self.home_frame:
             self.notebook.select(self.home_frame)
 
-        # Re-prompt initial assessment because initial_assessment_done is False
         self.prompt_initial_assessment()
-
-
-
-
-
 
     def open_support_window(self):
         support_window = tk.Toplevel(self.root)
         support_window.title("Support Developer")
-        support_window.geometry("400x200")
+        support_window.geometry("360x180") # Reduced
         support_window.resizable(False, False)
-        support_window.transient(self.root) # Keep it on top of the main window
-        support_window.grab_set() # Modal behavior
+        support_window.transient(self.root) 
+        support_window.grab_set() 
 
-        # Apply theme to the Toplevel window and its internal frame
         support_window.configure(bg=self.colors["BG_COLOR"])
-        main_frame = ttk.Frame(support_window, padding=20)
+        main_frame = ttk.Frame(support_window, padding=15) # Reduced
         main_frame.pack(expand=True, fill=tk.BOTH)
-        main_frame.configure(style="TFrame") # Apply frame style for BG
+        main_frame.configure(style="TFrame") 
 
-        message_text = "I put a lot of effort into developing this app (really).\n\nIf you like this app, consider supporting its development!"
+        message_text = "I put a lot of effort into developing this app.\nIf you like it, consider supporting its development!" # Simplified
         
-        msg_label = ttk.Label(main_frame, text=message_text, wraplength=360, justify=tk.CENTER, font=("Segoe UI", 11))
-        msg_label.pack(pady=(0, 20))
-        msg_label.configure(style="TLabel") # Apply label style for BG/FG
+        msg_label = ttk.Label(main_frame, text=message_text, wraplength=320, justify=tk.CENTER, font=("Segoe UI", 10)) # Reduced font, wraplength
+        msg_label.pack(pady=(0, 15)) # Reduced
+        msg_label.configure(style="TLabel") 
 
-        # "Buy me a coffee" button
         coffee_button_url = "https://buymeacoffee.com/verlorengest"
         
-        # Use the Pink.TButton style we defined
         coffee_btn = ttk.Button(main_frame, text="Buy me a coffee ☕", 
                                 command=lambda: webbrowser.open_new_tab(coffee_button_url),
-                                style="Pink.TButton", width=20)
-        coffee_btn.pack(pady=10)
+                                style="Pink.TButton", width=18) # Reduced width
+        coffee_btn.pack(pady=8) # Reduced
 
-        # Optional: Close button for the support window
-        close_btn = ttk.Button(main_frame, text="Close", command=support_window.destroy, style="TButton")
-        close_btn.pack(pady=(5,0))
+        close_btn = ttk.Button(main_frame, text="Close", command=support_window.destroy, style="TButton", width=10) # Reduced width
+        close_btn.pack(pady=(3,0)) # Reduced
 
-        # Center the window
         self.root.eval(f'tk::PlaceWindow {str(support_window)} center')
         support_window.focus_set()
 
-
-
-
     def setup_time_trends_tab_content(self, tab):
-        self.clear_tab_content(tab) # Clear previous content and canvases for this specific tab
-        self.setup_time_trend_charts(tab) # Call the chart generation function
+        self.clear_tab_content(tab) 
+        self.setup_time_trend_charts(tab) 
 
     def setup_time_trend_charts(self, parent_tab_frame):
-        # --- Overall Average Time Trend ---
-        overall_time_lf = ttk.LabelFrame(parent_tab_frame, text="Overall Average Solve Time Trend", padding=10)
-        overall_time_lf.pack(fill=tk.BOTH, expand=True, pady=(10,0))
+        overall_time_lf = ttk.LabelFrame(parent_tab_frame, text="Overall Average Solve Time Trend", padding=8) # Reduced
+        overall_time_lf.pack(fill=tk.BOTH, expand=True, pady=(8,0))
 
         if len(self.session_history) >= 2:
             try:
-                fig_overall, ax_overall = plt.subplots(figsize=(7, 3))
+                fig_overall, ax_overall = plt.subplots(figsize=(6, 2.5)) # Reduced figsize
                 fig_overall.patch.set_facecolor(self.colors["BG_COLOR"])
                 ax_overall.set_facecolor(self.colors["BG_COLOR"])
 
                 session_numbers = range(len(self.session_history))
-                avg_times_overall = [s.get('avg_time', 0) for s in self.session_history] # Overall avg time per session
+                avg_times_overall = [s.get('avg_time', 0) for s in self.session_history] 
 
-                ax_overall.plot(session_numbers, avg_times_overall, marker='o', linestyle='-', color=self.colors["PRIMARY_COLOR"], linewidth=2)
-                ax_overall.set_xlabel("Session Number", fontsize=9, color=self.colors["TEXT_COLOR"])
-                ax_overall.set_ylabel("Avg. Time (s)", fontsize=9, color=self.colors["TEXT_COLOR"])
-                ax_overall.set_title("Overall Session Avg. Solve Time", fontsize=10, color=self.colors["TEXT_COLOR"])
-                ax_overall.tick_params(axis='x', labelsize=8, colors=self.colors["TEXT_COLOR"])
-                ax_overall.tick_params(axis='y', labelsize=8, colors=self.colors["TEXT_COLOR"])
+                ax_overall.plot(session_numbers, avg_times_overall, marker='o', linestyle='-', color=self.colors["PRIMARY_COLOR"], linewidth=1.5, markersize=3) # Smaller marker
+                ax_overall.set_xlabel("Session Number", fontsize=8, color=self.colors["TEXT_COLOR"]) # Reduced
+                ax_overall.set_ylabel("Avg. Time (s)", fontsize=8, color=self.colors["TEXT_COLOR"]) # Reduced
+                ax_overall.set_title("Overall Session Avg. Solve Time", fontsize=9, color=self.colors["TEXT_COLOR"]) # Reduced
+                ax_overall.tick_params(axis='x', labelsize=7, colors=self.colors["TEXT_COLOR"]) # Reduced
+                ax_overall.tick_params(axis='y', labelsize=7, colors=self.colors["TEXT_COLOR"]) # Reduced
                 for spine in ax_overall.spines.values(): spine.set_edgecolor(self.colors["TEXT_COLOR"])
-                if len(session_numbers) > 15:
-                    ax_overall.xaxis.set_major_locator(plt.MaxNLocator(nbins=10, integer=True))
+                if len(session_numbers) > 10: # Show fewer ticks
+                    ax_overall.xaxis.set_major_locator(plt.MaxNLocator(nbins=8, integer=True))
                 
-                plt.tight_layout(pad=1.5)
-                canvas_overall = FigureCanvasTkAgg(fig_overall, master=overall_time_lf)
-                canvas_overall.draw()
-                canvas_overall.get_tk_widget().pack(side=tk.TOP, fill=tk.BOTH, expand=True)
-                # Store this canvas if you need to destroy it later on theme change/refresh
-                # self.overall_time_trend_canvas = canvas_overall 
+                plt.tight_layout(pad=1.0) # Reduced
+                canvas_overall_obj = FigureCanvasTkAgg(fig_overall, master=overall_time_lf)
+                canvas_overall_obj.draw()
+                canvas_overall_obj.get_tk_widget().pack(side=tk.TOP, fill=tk.BOTH, expand=True)
+                self.overall_time_trend_canvas_info = {'canvas': canvas_overall_obj, 'fig': fig_overall} 
             except Exception as e:
-                ttk.Label(overall_time_lf, text=f"Error generating overall time trend: {e}").pack()
+                ttk.Label(overall_time_lf, text=f"Error: {e}", font=("Segoe UI", 8)).pack()
         else:
-            ttk.Label(overall_time_lf, text="Not enough session data for overall time trend.").pack(pady=20)
+            ttk.Label(overall_time_lf, text="Not enough session data.", font=("Segoe UI", 9)).pack(pady=15)
 
+        op_time_lf = ttk.LabelFrame(parent_tab_frame, text="Avg. Solve Time Trends by Operation", padding=8) # Reduced
+        op_time_lf.pack(fill=tk.BOTH, expand=True, pady=(8,0))
 
-        # --- Per-Operation Average Time Trends ---
-        op_time_lf = ttk.LabelFrame(parent_tab_frame, text="Average Solve Time Trends by Operation", padding=10)
-        op_time_lf.pack(fill=tk.BOTH, expand=True, pady=(10,0))
-
-        # Create a sub-notebook or scrollable frame if many operations
-        op_trend_notebook = ttk.Notebook(op_time_lf, style="TNotebook") # Or a scrollable frame
+        op_trend_notebook = ttk.Notebook(op_time_lf, style="TNotebook") 
         op_trend_notebook.pack(fill=tk.BOTH, expand=True)
 
         active_ops_with_data = set()
@@ -1749,11 +1568,11 @@ class MathSpeedTrainer:
                     active_ops_with_data.add(op_name)
         
         if not active_ops_with_data:
-             ttk.Label(op_time_lf, text="No per-operation time data available across sessions.").pack(pady=20)
+             ttk.Label(op_time_lf, text="No per-operation time data.", font=("Segoe UI", 9)).pack(pady=15)
              return
 
         for op_name in sorted(list(active_ops_with_data)):
-            op_tab = ttk.Frame(op_trend_notebook, padding=5)
+            op_tab = ttk.Frame(op_trend_notebook, padding=3) # Reduced
             op_trend_notebook.add(op_tab, text=op_name.capitalize())
 
             session_indices_with_op_data = []
@@ -1762,52 +1581,34 @@ class MathSpeedTrainer:
             for i, session in enumerate(self.session_history):
                 if "operations_performance" in session and \
                    op_name in session["operations_performance"] and \
-                   session["operations_performance"][op_name]["total"] > 0: # Ensure some questions were answered for this op
+                   session["operations_performance"][op_name]["total"] > 0: 
                     session_indices_with_op_data.append(i)
                     op_avg_times.append(session["operations_performance"][op_name]["avg_time"])
             
             if len(op_avg_times) >= 2:
                 try:
-                    fig_op, ax_op = plt.subplots(figsize=(6, 2.5)) # Smaller for tabs
+                    fig_op, ax_op = plt.subplots(figsize=(5, 2)) # Reduced figsize
                     fig_op.patch.set_facecolor(self.colors["BG_COLOR"])
                     ax_op.set_facecolor(self.colors["BG_COLOR"])
 
-                    ax_op.plot(session_indices_with_op_data, op_avg_times, marker='.', linestyle='-', color=self.colors["ACCENT_COLOR_GREEN"], linewidth=1.5)
-                    ax_op.set_xlabel("Session Number", fontsize=8, color=self.colors["TEXT_COLOR"])
-                    ax_op.set_ylabel("Avg. Time (s)", fontsize=8, color=self.colors["TEXT_COLOR"])
-                    # ax_op.set_title(f"{op_name.capitalize()} Avg. Time", fontsize=9, color=self.colors["TEXT_COLOR"]) # Title per tab is enough
-                    ax_op.tick_params(axis='x', labelsize=7, colors=self.colors["TEXT_COLOR"])
-                    ax_op.tick_params(axis='y', labelsize=7, colors=self.colors["TEXT_COLOR"])
+                    ax_op.plot(session_indices_with_op_data, op_avg_times, marker='.', linestyle='-', color=self.colors["ACCENT_COLOR_GREEN"], linewidth=1.2, markersize=3) # Smaller
+                    ax_op.set_xlabel("Session #", fontsize=7, color=self.colors["TEXT_COLOR"]) # Compact
+                    ax_op.set_ylabel("Avg. Time (s)", fontsize=7, color=self.colors["TEXT_COLOR"]) # Reduced
+                    ax_op.tick_params(axis='x', labelsize=6, colors=self.colors["TEXT_COLOR"]) # Reduced
+                    ax_op.tick_params(axis='y', labelsize=6, colors=self.colors["TEXT_COLOR"]) # Reduced
                     for spine in ax_op.spines.values(): spine.set_edgecolor(self.colors["TEXT_COLOR"])
-                    if len(session_indices_with_op_data) > 10:
-                         ax_op.xaxis.set_major_locator(plt.MaxNLocator(nbins=8, integer=True))
+                    if len(session_indices_with_op_data) > 8: # Fewer ticks
+                         ax_op.xaxis.set_major_locator(plt.MaxNLocator(nbins=6, integer=True))
 
-                    plt.tight_layout(pad=1)
-                    canvas_op = FigureCanvasTkAgg(fig_op, master=op_tab)
-                    canvas_op.draw()
-                    canvas_op.get_tk_widget().pack(side=tk.TOP, fill=tk.BOTH, expand=True)
-                    # Store these canvases in a list/dict if you need to destroy them later
-                    # if not hasattr(self, 'op_time_trend_canvases'): self.op_time_trend_canvases = {}
-                    # self.op_time_trend_canvases[op_name] = canvas_op
+                    plt.tight_layout(pad=0.8) # Reduced
+                    canvas_op_obj = FigureCanvasTkAgg(fig_op, master=op_tab)
+                    canvas_op_obj.draw()
+                    canvas_op_obj.get_tk_widget().pack(side=tk.TOP, fill=tk.BOTH, expand=True)
+                    self.op_time_trend_canvases_info[op_name] = {'canvas': canvas_op_obj, 'fig': fig_op}
                 except Exception as e:
-                    ttk.Label(op_tab, text=f"Error: {e}").pack()
+                    ttk.Label(op_tab, text=f"Error: {e}", font=("Segoe UI", 7)).pack()
             else:
-                ttk.Label(op_tab, text=f"Not enough data for {op_name.capitalize()} time trend.").pack(pady=10)
-
-    # Then, in your `setup_stats_frame` or `refresh_stats`, you would call:
-    # self.setup_time_trend_charts(self.predictions_tab) # Or a new dedicated tab
-    #
-    # And in `clear_tab_content` for the respective tab, you'd destroy these canvases:
-    # if hasattr(self, 'overall_time_trend_canvas') and self.overall_time_trend_canvas:
-    #     self.overall_time_trend_canvas.get_tk_widget().destroy()
-    #     self.overall_time_trend_canvas = None
-    # if hasattr(self, 'op_time_trend_canvases'):
-    #     for op_name, canvas in self.op_time_trend_canvases.items():
-    #         if canvas: canvas.get_tk_widget().destroy()
-    #     self.op_time_trend_canvases = {}
-
-
-
+                ttk.Label(op_tab, text=f"Not enough data for {op_name.capitalize()}.", font=("Segoe UI", 8)).pack(pady=8)
 
     def save_settings(self):
         new_theme = self.theme_var.get()
@@ -1839,30 +1640,26 @@ class MathSpeedTrainer:
         if level > self.difficulty_brackets[-1][1]: 
             params = self.difficulty_brackets[-1][2].copy() 
             
-            # --- MODIFICATION: Adjust scaling factor based on self_assessment_level ---
-            base_scaling_divisor = 20.0 # Default scaling speed
+            base_scaling_divisor = 20.0 
             if self.self_assessment_level == "bad":
-                base_scaling_divisor = 30.0 # Slower scaling
+                base_scaling_divisor = 30.0 
             elif self.self_assessment_level == "nice":
-                base_scaling_divisor = 15.0 # Faster scaling
+                base_scaling_divisor = 15.0 
             elif self.self_assessment_level == "perfect":
-                base_scaling_divisor = 10.0 # Even faster scaling
-            # "good" uses the default 20.0
+                base_scaling_divisor = 10.0 
 
             factor = 1.0 + (level - self.difficulty_brackets[-1][1]) / base_scaling_divisor
-            # --- END MODIFICATION ---
             
             if "range" in params:
                 params["range"] = (int(params["range"][0] * factor), int(params["range"][1] * factor))
             if "mult_range" in params:
                  params["mult_range"] = (int(params["mult_range"][0] * factor), int(params["mult_range"][1] * factor))
             if "digits" in params: 
-                digit_scaling_divisor = 15.0 # How many levels per digit increase
+                digit_scaling_divisor = 15.0 
                 if self.self_assessment_level == "bad": digit_scaling_divisor = 20.0
                 elif self.self_assessment_level == "perfect": digit_scaling_divisor = 10.0
                 params["digits"] = min(params["digits"] + int((level - self.difficulty_brackets[-1][1]) / digit_scaling_divisor) , 6) 
 
-        # ... (rest of the range validation as before) ...
         if "range" in params and params["range"][0] >= params["range"][1]: 
             params["range"] = (max(1, params["range"][1]-1), params["range"][1]) if params["range"][1]>1 else (1,2)
         if "mult_range" in params and params["mult_range"][0] >= params["mult_range"][1]:
@@ -1876,7 +1673,7 @@ class MathSpeedTrainer:
         
         enabled_ops = [op for op, enabled in self.operations.items() if enabled]
         if not enabled_ops:
-            return {"text": "No operations selected!", "answer": 0, "op_type": "error", "num1":0, "num2":0, "raw_question": (0,0,"error")}
+            return {"text": "No ops selected!", "answer": 0, "op_type": "error", "num1":0, "num2":0, "raw_question": (0,0,"error")}
 
         if chosen_operation and chosen_operation in enabled_ops:
             op_type = chosen_operation
@@ -1968,7 +1765,7 @@ class MathSpeedTrainer:
         else: return self.generate_question(level, random.choice(["addition", "subtraction"]))
         return {"text": q_text, "answer": answer, "op_type": op_type, "num1": n1, "num2": n2, "raw_question": raw_q}
 
-    def generate_mc_options(self, correct_answer, level): # Copied from previous good version
+    def generate_mc_options(self, correct_answer, level): 
         options = {correct_answer} 
         params = self.get_difficulty_params(level)
         
@@ -2053,10 +1850,9 @@ class MathSpeedTrainer:
 
     def start_game(self):
         if not any(self.operations.values()):
-            messagebox.showerror("Error", "No operations selected. Please enable at least one operation in Settings.", parent=self.root)
+            messagebox.showerror("Error", "No ops selected. Enable in Settings.", parent=self.root)
             return
         self.game_active = True
-        # ... (reset session stats as before) ...
         self.questions_answered = 0
         self.correct_answers = 0
         self.session_operation_times.clear()
@@ -2068,27 +1864,24 @@ class MathSpeedTrainer:
         
         self.game_end_time = time.time() + self.game_duration
         self.update_timer()
-        self.update_game_answer_mode_ui() # Show the input method
-        self.next_question() # Then generate the first question
+        self.update_game_answer_mode_ui() 
+        self.next_question() 
 
     def stop_game(self, timed_out=False):
-        was_active = self.game_active # Store state before changing
+        was_active = self.game_active 
         self.game_active = False
         
-        # --- Hide answer input frames ---
         if hasattr(self, 'text_answer_frame'): self.text_answer_frame.pack_forget()
         if hasattr(self, 'mc_answer_frame'): self.mc_answer_frame.pack_forget()
 
         self.start_button.config(state=tk.NORMAL)
         self.stop_button.config(state=tk.DISABLED)
         
-        if was_active and self.questions_answered > 0: # Only process if game was truly active and questions answered
-            # ... (session summary and saving logic as before) ...
+        if was_active and self.questions_answered > 0: 
             accuracy = (self.correct_answers / self.questions_answered) * 100
-            # ... (calculate avg_time_per_q) ...
             total_session_time_spent = 0
             total_session_questions_for_avg = 0
-            for op_type_key in self.session_operation_times: # Use a different variable name
+            for op_type_key in self.session_operation_times: 
                 total_session_time_spent += sum(self.session_operation_times[op_type_key])
                 total_session_questions_for_avg += len(self.session_operation_times[op_type_key])
             avg_time_per_q = (total_session_time_spent / total_session_questions_for_avg) if total_session_questions_for_avg > 0 else 0
@@ -2106,18 +1899,18 @@ class MathSpeedTrainer:
                 "operations_performance": {
                     op: {
                         "correct": self.session_operation_correct[op],
-                        "total": len(self.session_operation_times[op]), # Corrected: use len of list of times
+                        "total": len(self.session_operation_times[op]), 
                         "avg_time": np.mean(self.session_operation_times[op]) if self.session_operation_times[op] else 0
-                    } for op in self.session_operation_times # Iterate over keys of session_operation_times
+                    } for op in self.session_operation_times 
                 }
             }
             self.session_history.append(session_data)
-            summary_msg = f"Game Over!\n\nQuestions Answered: {self.questions_answered}\nCorrect: {self.correct_answers} ({accuracy:.1f}%)\nAverage Time: {avg_time_per_q:.2f}s"
-            if timed_out: summary_msg = "Time's up!\n\n" + summary_msg.split("\n\n",1)[1]
+            summary_msg = f"Game Over!\nAnswered: {self.questions_answered}\nCorrect: {self.correct_answers} ({accuracy:.1f}%)\nAvg Time: {avg_time_per_q:.2f}s" # Compacted
+            if timed_out: summary_msg = "Time's up!\n" + summary_msg.split("\n",1)[1]
             messagebox.showinfo("Game Over", summary_msg, parent=self.root)
 
-        elif was_active and not timed_out : # Stopped manually with no questions
-             messagebox.showinfo("Game Stopped", "Game stopped. No questions were answered.", parent=self.root)
+        elif was_active and not timed_out : 
+             messagebox.showinfo("Game Stopped", "Game stopped. No questions answered.", parent=self.root)
         
         self.question_label.config(text="Press Start to begin")
         if hasattr(self, 'answer_entry'): self.answer_entry.delete(0, tk.END)
@@ -2187,15 +1980,14 @@ class MathSpeedTrainer:
         raw_question_tuple = self.current_question_details["raw_question"]
         correct_answer_val = self.current_question_details["answer"]
 
-        # --- For Game Mode & General Stats ---
-        if self.game_active or self.practice_active: # Update stats for both, but persistence logic might differ
-            self.questions_answered += 1 # This is session-specific questions_answered
+        if self.game_active or self.practice_active: 
+            self.questions_answered += 1 
             self.session_operation_times[op_type].append(time_taken)
 
             xp_gained = 0
             if is_correct:
-                if self.game_active or self.practice_active: # Only session_correct_answers for game/practice session
-                    self.correct_answers += 1 # This is session-specific correct_answers
+                if self.game_active or self.practice_active: 
+                    self.correct_answers += 1 
                 self.session_operation_correct[op_type] += 1
                 
                 xp_gained = 10 
@@ -2204,33 +1996,22 @@ class MathSpeedTrainer:
                 xp_gained += self.current_level // 5
                 if self.answer_mode == "mc": xp_gained = int(xp_gained * 0.7)
                 
-                if self.game_active: # Only add XP in game mode
+                if self.game_active: 
                     self.current_xp += xp_gained
                 
                 self.operation_stats[op_type]["correct"] += 1
 
-                # --- Check if this question was in the persistently_wrong_questions list ---
-                # And if we are in a "practice wrong questions" mode (to be added)
-                # For now, let's assume if it's answered correctly anywhere, it could be removed
-                # A better approach is to remove it only when practiced from the "wrong list"
-                # This part will be handled by the specific practice mode for wrong questions.
-
-                # --- Check for Slow Questions ---
-                # Define "slow": e.g., > 1.5x average for this op_type, or > avg + 3s
-                # Ensure op_stats has been populated enough for a meaningful average
-                if self.operation_stats[op_type]["total_answered_for_avg"] > 5: # Need some baseline
+                if self.operation_stats[op_type]["total_answered_for_avg"] > 5: 
                     avg_op_time = self.operation_stats[op_type]["avg_time"]
-                    # Example thresholds for "slow"
                     is_significantly_slow = (time_taken > avg_op_time * 1.75) or \
-                                            (time_taken > avg_op_time + 4 and avg_op_time > 2) # More than 4s slower if avg is already >2s
+                                            (time_taken > avg_op_time + 4 and avg_op_time > 2) 
 
                     if is_significantly_slow:
-                        # Avoid adding duplicates if already in the slow list from a previous attempt
                         already_slow = any(
                             item['raw_q'] == raw_question_tuple and item['op_type'] == op_type 
                             for item in self.persistently_slow_questions
                         )
-                        if not already_slow and len(self.persistently_slow_questions) < 20: # Limit list size
+                        if not already_slow and len(self.persistently_slow_questions) < 20: 
                             self.persistently_slow_questions.append({
                                 'raw_q': raw_question_tuple, 
                                 'answer': correct_answer_val, 
@@ -2238,30 +2019,22 @@ class MathSpeedTrainer:
                                 'original_time': round(time_taken, 2),
                                 'avg_at_detection': round(avg_op_time, 2)
                             })
-                            # print(f"Added slow question: {raw_question_tuple}, time: {time_taken:.2f}s, avg: {avg_op_time:.2f}s")
-
-
-            else: # Incorrect answer
+            else: 
                 if self.game_active or self.practice_active:
                     self.session_operation_incorrect[op_type] += 1
                 self.operation_stats[op_type]["incorrect"] += 1
                 
-                # --- Add to Persistently Wrong Questions ---
-                # Avoid adding duplicates
                 already_wrong = any(
                     item['raw_q'] == raw_question_tuple and item['op_type'] == op_type
                     for item in self.persistently_wrong_questions
                 )
-                if not already_wrong and len(self.persistently_wrong_questions) < 30: # Limit list size
+                if not already_wrong and len(self.persistently_wrong_questions) < 30: 
                     self.persistently_wrong_questions.append({
                         'raw_q': raw_question_tuple, 
                         'answer': correct_answer_val, 
                         'op_type': op_type
                     })
-                    # print(f"Added wrong question: {raw_question_tuple}")
 
-
-            # Update running average time in persistent stats
             prev_total_answered_for_avg = self.operation_stats[op_type]["total_answered_for_avg"]
             prev_avg_time = self.operation_stats[op_type]["avg_time"]
             new_total_answered_for_avg = prev_total_answered_for_avg + 1
@@ -2269,47 +2042,37 @@ class MathSpeedTrainer:
                 ((prev_avg_time * prev_total_answered_for_avg) + time_taken) / new_total_answered_for_avg
             self.operation_stats[op_type]["total_answered_for_avg"] = new_total_answered_for_avg
 
-        # --- UI Updates based on mode ---
         if self.game_active:
             self.update_xp_and_level()
             if hasattr(self, 'score_label'): self.score_label.config(text=f"Score: {self.correct_answers}/{self.questions_answered}")
             self.next_question()
         elif self.practice_active: 
-            # This is the generic practice mode handling
-            # Specific practice modes (wrong/slow) will have their own logic after this call
             self.practice_questions_answered +=1
             if is_correct: self.practice_correct_answers +=1
             
-            feedback_text = "Correct!" if is_correct else f"Incorrect. Answer: {self.current_question_details['answer']}"
+            feedback_text = "Correct!" if is_correct else f"Incorrect. Ans: {self.current_question_details['answer']}" # Compacted
             feedback_color = self.colors["ACCENT_COLOR_GREEN"] if is_correct else self.colors["ACCENT_COLOR_RED"]
             
             if hasattr(self, 'practice_feedback_label'): self.practice_feedback_label.config(text=feedback_text, foreground=feedback_color)
             
-            # --- Handle removal for specific practice types ---
             if self.current_practice_type == "wrong_ones" and is_correct:
-                # Find and remove the question from self.persistently_wrong_questions
-                q_to_remove = {'raw_q': raw_question_tuple, 'op_type': op_type} # Answer not needed for matching raw_q
+                q_to_remove = {'raw_q': raw_question_tuple, 'op_type': op_type} 
                 self.persistently_wrong_questions = [
                     q for q in self.persistently_wrong_questions if not (q['raw_q'] == q_to_remove['raw_q'] and q['op_type'] == q_to_remove['op_type'])
                 ]
-                self.save_user_data() # Save immediately after removal
-                feedback_text += " (Removed from your mistakes list!)"
+                self.save_user_data() 
+                feedback_text += " (Removed!)" # Compact
                 if hasattr(self, 'practice_feedback_label'): self.practice_feedback_label.config(text=feedback_text)
 
-
             elif self.current_practice_type == "slow_ones":
-                # If re-attempted, remove from slow list (or mark as improved)
-                # For simplicity, let's remove it on any re-attempt from this mode.
-                # A more advanced system could check if the new time is better.
                 q_to_remove = {'raw_q': raw_question_tuple, 'op_type': op_type}
                 self.persistently_slow_questions = [
                     q for q in self.persistently_slow_questions if not (q['raw_q'] == q_to_remove['raw_q'] and q['op_type'] == q_to_remove['op_type'])
                 ]
                 self.save_user_data()
                 if is_correct:
-                    feedback_text += " (Re-attempted slow question.)"
+                    feedback_text += " (Re-attempted.)" # Compact
                     if hasattr(self, 'practice_feedback_label'): self.practice_feedback_label.config(text=feedback_text)
-
 
             if self.answer_mode == "text":
                 if hasattr(self, 'practice_answer_entry'): self.practice_answer_entry.config(state=tk.DISABLED)
@@ -2319,7 +2082,7 @@ class MathSpeedTrainer:
                     for btn in self.practice_mc_buttons: btn.config(state=tk.DISABLED)
             
             if hasattr(self, 'next_practice_q_button'):
-                self.next_practice_q_button.pack(side=tk.LEFT, padx=5)
+                self.next_practice_q_button.pack(side=tk.LEFT, padx=3)
                 self.next_practice_q_button.focus_set()
 
 
@@ -2330,39 +2093,10 @@ class MathSpeedTrainer:
             self.current_level += 1
             self.xp_needed = self.calculate_xp_for_level(self.current_level + 1)
             leveled_up = True
-        if leveled_up: messagebox.showinfo("Level Up!", f"Congratulations! You've reached Level {self.current_level}!", parent=self.root)
+        if leveled_up: messagebox.showinfo("Level Up!", f"Congrats! Reached Level {self.current_level}!", parent=self.root) # Compacted
         self.update_xp_display()
         if hasattr(self, 'game_level_label'):
             self.game_level_label.config(text=f"Level: {self.current_level}")
-
-    def start_practice(self):
-        selected_op_display = self.practice_operation_var.get()
-        if selected_op_display == "Based on weakness":
-            if not self.weakness_list.get(0): 
-                messagebox.showinfo("Practice", "No weaknesses identified. Defaulting to Addition.", parent=self.root)
-                self.current_practice_op = "addition"
-            else:
-                weakest_op_str = self.weakness_list.get(0).split(":")[0].lower()
-                self.current_practice_op = weakest_op_str
-        else: self.current_practice_op = selected_op_display.lower()
-        if not self.operations.get(self.current_practice_op, False) and self.current_practice_op not in ["addition", "subtraction", "multiplication", "division"]:
-            enabled_ops_list = [op for op, enabled in self.operations.items() if enabled]
-            if not enabled_ops_list:
-                messagebox.showerror("Error", "No operations enabled in settings.", parent=self.root)
-                return
-            self.current_practice_op = random.choice(enabled_ops_list)
-            messagebox.showinfo("Practice", f"Selected practice op was disabled. Practicing {self.current_practice_op.capitalize()} instead.", parent=self.root)
-        self.practice_questions_total = self.practice_question_count_var.get()
-        self.practice_questions_answered = 0
-        self.practice_correct_answers = 0
-        self.practice_active = True
-        
-        if hasattr(self, 'options_main_frame_practice'): self.options_main_frame_practice.pack_forget()
-        if hasattr(self, 'practice_area'): self.practice_area.pack(fill=tk.BOTH, expand=True, pady=10)
-        self.next_practice_question()
-        self.update_practice_answer_mode_ui()
-
-# Inside MathSpeedTrainer class
 
     def next_practice_question(self):
         if not self.practice_active or self.practice_questions_answered >= self.practice_questions_total:
@@ -2370,66 +2104,66 @@ class MathSpeedTrainer:
             return
 
         if self.current_practice_type == "targeted_op":
-            # Generate question based on selected operation (self.current_practice_op_for_session)
             self.current_question_details = self.generate_question(self.current_level, self.current_practice_op_for_session)
         
         elif self.current_practice_type in ["wrong_ones", "slow_ones"]:
-            if not self.current_practice_list: # Should be caught by the check above, but good safety
+            if not self.current_practice_list: 
                 self.end_practice_session()
                 return
             
-            question_data = self.current_practice_list[self.practice_questions_answered] # Get next from list
+            # Make sure we don't go out of bounds if list shrank and answered count is high
+            if self.practice_questions_answered >= len(self.current_practice_list):
+                self.end_practice_session()
+                return
+
+            question_data = self.current_practice_list[self.practice_questions_answered] 
             raw_q = question_data['raw_q']
             n1, n2, op_char_from_raw = raw_q[0], raw_q[1], raw_q[2]
             
-            # Reconstruct question text (this might need refinement based on how raw_q is stored)
             q_text_display = f"{n1} {op_char_from_raw} {n2} = ?"
             if question_data['op_type'] == "powers": q_text_display = f"{n1}^{n2} = ?"
-            elif question_data['op_type'] == "roots": q_text_display = f"{'√' if n2==2 else '∛'}{n1} = ?" # n2 is root type here
+            elif question_data['op_type'] == "roots": q_text_display = f"{'√' if n2==2 else '∛'}{n1} = ?" 
             elif question_data['op_type'] == "percentages": q_text_display = f"{n1}% of {n2} = ?"
 
-
             self.current_question_details = {
-                "text": q_text_display,
-                "answer": question_data['answer'],
-                "op_type": question_data['op_type'],
-                "num1": n1, # For hint generation primarily
-                "num2": n2, # For hint generation
+                "text": q_text_display, "answer": question_data['answer'],
+                "op_type": question_data['op_type'], "num1": n1, "num2": n2, 
                 "raw_question": raw_q 
             }
             if self.current_practice_type == "slow_ones" and 'original_time' in question_data:
-                 self.hint_label.config(text=f"Original time: {question_data['original_time']}s (Avg then: {question_data.get('avg_at_detection','N/A')}s). Try faster!")
+                 self.hint_label.config(text=f"Original: {question_data['original_time']}s (Avg: {question_data.get('avg_at_detection','N/A')}s)") # Compact
             else:
                  if hasattr(self, 'hint_label'): self.hint_label.config(text=self.generate_hint())
-
-        else: # Fallback or unknown practice type
+        else: 
             self.current_question_details = self.generate_question(self.current_level, "addition")
 
-
-        # --- Common UI updates for any practice question ---
         if hasattr(self, 'practice_question_label'): self.practice_question_label.config(text=self.current_question_details["text"])
-        if self.current_practice_type != "slow_ones": # Avoid overwriting slow_ones specific hint
+        if self.current_practice_type != "slow_ones": 
             if hasattr(self, 'hint_label'): self.hint_label.config(text=self.generate_hint())
 
         if hasattr(self, 'practice_feedback_label'): self.practice_feedback_label.config(text="") 
         self.question_start_time = time.time()
 
         if self.answer_mode == "text":
-            # ... (as before: enable entry, clear, focus, show submit button) ...
             if hasattr(self, 'practice_answer_entry'):
                 self.practice_answer_entry.config(state=tk.NORMAL)
                 self.practice_answer_entry.delete(0, tk.END)
                 self.practice_answer_entry.focus_set()
-            if hasattr(self, 'practice_submit_button'): self.practice_submit_button.pack(side=tk.LEFT, padx=5)
+            # Submit button shown based on update_practice_answer_mode_ui state
         else: 
             options = self.generate_mc_options(self.current_question_details["answer"], self.current_level)
-            # ... (as before: configure MC buttons) ...
             if hasattr(self, 'practice_mc_buttons'):
                 for i, btn in enumerate(self.practice_mc_buttons):
                     btn.config(text=str(options[i]), state=tk.NORMAL)
                     btn.option_value = options[i]
 
+        # Logic for showing/hiding submit/next is in update_practice_answer_mode_ui
+        self.update_practice_answer_mode_ui()
+        # Specifically ensure next button is hidden before an answer is submitted
         if hasattr(self, 'next_practice_q_button'): self.next_practice_q_button.pack_forget()
+        if self.answer_mode == "text" and hasattr(self, 'practice_submit_button'): # Ensure submit button is shown for text input
+            self.practice_submit_button.pack(side=tk.LEFT, padx=3)
+
 
     def check_practice_answer(self, event=None): 
         if not self.practice_active or self.answer_mode != "text" or not hasattr(self, 'practice_answer_entry'): return
@@ -2460,65 +2194,64 @@ class MathSpeedTrainer:
         self.practice_active = False
         accuracy = (self.practice_correct_answers / self.practice_questions_total * 100) if self.practice_questions_total > 0 else 0
         
-        practice_type_msg = self.current_practice_type.replace("_", " ").title()
-        if self.current_practice_type == "targeted_op":
+        practice_type_msg = self.current_practice_type.replace("_", " ").title() if self.current_practice_type else "Unknown"
+        if self.current_practice_type == "targeted_op" and self.current_practice_op_for_session:
             practice_type_msg = f"Targeted: {self.current_practice_op_for_session.capitalize()}"
 
         messagebox.showinfo("Practice Complete", 
-                            f"Practice session finished!\n\nType: {practice_type_msg}\n"
-                            f"Answered: {self.practice_correct_answers}/{self.practice_questions_total} ({accuracy:.1f}%)", parent=self.root)
+                            f"Session finished!\nType: {practice_type_msg}\n" # Compacted
+                            f"Answered: {self.practice_correct_answers}/{self.practice_questions_total} ({accuracy:.0f}%)", parent=self.root) # Use .0f for acc
         
         if hasattr(self, 'practice_area'): self.practice_area.pack_forget()
-        if hasattr(self, 'options_main_frame_practice'): self.options_main_frame_practice.pack(fill=tk.X, pady=(0,15)) # Show the main options frame again
+        if hasattr(self, 'options_main_frame_practice'): self.options_main_frame_practice.pack(fill=tk.X, pady=(0,10)) 
         if hasattr(self, 'stop_practice_button'): self.stop_practice_button.pack_forget()
 
 
-        self.current_practice_type = None # Reset practice type
+        self.current_practice_type = None 
         self.current_practice_list = []
         self.current_practice_op_for_session = None
 
-
         self.save_user_data()
-        self.refresh_stats() # Update stats display including weaknesses
-        self.update_weakness_list() # Update lists on practice tab itself
+        self.refresh_stats() 
+        self.update_weakness_list() 
 
     def generate_hint(self):
         if not self.current_question_details: return ""
         q_details = self.current_question_details
         op, raw_q = q_details["op_type"], q_details.get("raw_question")
-        if raw_q is None: return "Hint: Double check the numbers."
+        if raw_q is None: return "Hint: Check numbers." # Compact
         val1, val2, op_char = raw_q
         hint_text = ""
+        # Hints are kept mostly the same for brevity, can be further compacted if needed
         if op == "addition":
-            if val1 > 10 and val2 > 10: hint_text = f"Hint: Try ({val1//10*10} + {val2//10*10}) + ({val1%10} + {val2%10})."
-            else: hint_text = "Hint: Count up from the larger number."
+            if val1 > 10 and val2 > 10 and random.random() > 0.3: hint_text = f"Try: ({val1//10*10} + {val2//10*10}) + ({val1%10} + {val2%10})."
+            else: hint_text = "Hint: Count up from larger #." # Compact
         elif op == "subtraction":
-            if val2 > 10 and val1 - val2 > 10 : hint_text = f"Hint: Try {val1} - {val2//10*10}, then subtract {val2%10}."
-            else: hint_text = f"Hint: What plus {val2} equals {val1}?"
+            if val2 > 10 and val1 - val2 > 10 and random.random() > 0.3: hint_text = f"Try: {val1} - {val2//10*10}, then subtract {val2%10}."
+            else: hint_text = f"Hint: What + {val2} = {val1}?"
         elif op == "multiplication":
             if val2 == 10: hint_text = f"Hint: {val1} × 10 = {val1}0."
-            elif val2 == 11 and val1 < 100: hint_text = f"Hint: {val1} × 11 = ({val1} × 10) + {val1}."
-            elif val2 == 5: hint_text = f"Hint: {val1} × 5 = ({val1} × 10) ÷ 2."
-            elif val2 == 25: hint_text = f"Hint: {val1} × 25 = ({val1} × 100) ÷ 4."
-            elif val1 > 10 and val2 > 10 and (val2 % 10 != 0) and abs(val2 - round(val2,-1)) <=2 :
+            elif val2 == 11 and val1 < 100: hint_text = f"Try: ({val1}×10) + {val1}."
+            elif val2 == 5: hint_text = f"Try: ({val1}×10) ÷ 2."
+            elif val2 == 25: hint_text = f"Try: ({val1}×100) ÷ 4."
+            elif val1 > 10 and val2 > 10 and (val2 % 10 != 0) and abs(val2 - round(val2,-1)) <=2 and random.random() > 0.4 :
                 near_ten, diff = round(val2, -1), val2 - round(val2, -1)
                 op_sign = "+" if diff >= 0 else "-"
-                hint_text = f"Hint: {val1} × ({near_ten} {op_sign} {abs(diff)}) = ({val1}×{near_ten}) {op_sign} ({val1}×{abs(diff)})."
-            else: hint_text = "Hint: Break down one number into easier parts."
+                hint_text = f"Try: {val1}×({near_ten}{op_sign}{abs(diff)})"
+            else: hint_text = "Hint: Break down a number." # Compact
         elif op == "division":
-            hint_text = f"Hint: What number × {val2} = {val1}?"
-            if val2 !=0 and val1 % val2 == 0 and val1/val2 < 12 and val2 < 12: hint_text += f"\nThink of your {val2} times table."
+            hint_text = f"Hint: What × {val2} = {val1}?"
+            if val2 !=0 and val1 % val2 == 0 and val1/val2 < 12 and val2 < 12 and random.random() > 0.3: hint_text += f"\nUse {val2} times table."
         elif op == "powers":
-            hint_text = f"Hint: {val1}^{val2} means {val1} multiplied by itself {val2} times."
+            hint_text = f"Hint: {val1} × itself {val2} times." # Compact
         elif op == "roots":
-            hint_text = f"Hint: What number, times itself {val2} times, gives {val1}?"
+            hint_text = f"Hint: What # × itself {val2} times = {val1}?" # Compact
         elif op == "percentages":
-            hint_text = f"Hint: {val1}% of {val2} = ({val1}/100) × {val2}.\n"
-            if val1 % 10 == 0: hint_text += f"Or, 10% of {val2} is {val2/10}. You need {val1//10} of these."
-        return hint_text if hint_text else "Hint: Think step by step!"
+            hint_text = f"Hint: ({val1}/100) × {val2}." # Compact
+            if val1 % 10 == 0 and random.random() > 0.3: hint_text += f"\n10% of {val2} is {val2/10}. You need {val1//10} of these."
+        return hint_text if hint_text else "Hint: Step by step!" # Compact
 
 if __name__ == "__main__":
-    # Create a unique AppUserModelID for your application
     MY_APP_ID = "KaanSoyler.MathSpeedTrainer.MST.1.0" 
     set_app_user_model_id(MY_APP_ID)
 
